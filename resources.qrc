@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/raster_cutter" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
