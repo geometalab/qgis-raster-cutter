@@ -21,10 +21,17 @@
  *                                                                         *
  ***************************************************************************/
 """
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QMenu
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 import qgis.core
+from qgis.core import (QgsProcessingParameterDefinition,
+                       QgsProcessingParameters,
+                       QgsProject,
+                       QgsReferencedRectangle,
+                       QgsMapLayerProxyModel)
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -83,18 +90,17 @@ class RasterCutter:
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('RasterCutter', message)
 
-
     def add_action(
-        self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
-        whats_this=None,
-        parent=None):
+            self,
+            icon_path,
+            text,
+            callback,
+            enabled_flag=True,
+            add_to_menu=True,
+            add_to_toolbar=True,
+            status_tip=None,
+            whats_this=None,
+            parent=None):
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
@@ -171,7 +177,6 @@ class RasterCutter:
         # will be set False in run()
         self.first_start = True
 
-
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
         for action in self.actions:
@@ -180,24 +185,16 @@ class RasterCutter:
                 action)
             self.iface.removeToolBarIcon(action)
 
-
     def run(self):
         """Run method that performs all the real work"""
 
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
-        if self.first_start == True:
+        if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
 
-
-        # Load the layers and add them to the combobox
-        layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
-        layer_list = []
-        for layer in layers:
-            layer_list.append(layer.name())
-            self.dlg.comboBox.addItems(layer_list)
-
+        load_layer_items(self)
 
         # show the dialog
         self.dlg.show()
@@ -205,6 +202,31 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
+            get_extent(self)
+
+
+def load_layer_items(self):
+    # Load the layers and add them to the combobox
+    layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
+    layer_list = []
+    for layer in layers:
+        layer_list.append(layer.name())
+        self.dlg.layer_combobox.addItems(layer_list)
+
+
+def get_extent(self):
+    if self.dlg.canvas_extent_radiobtn.isChecked():
+        print(str(QgsReferencedRectangle(self.iface.mapCanvas().extent(),
+                                         self.iface.mapCanvas().mapSettings().destinationCrs())))
+    elif self.dlg.layer_extent_radiobtn.isChecked():
+        layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
+        selectedLayerIndex = self.dlg.layer_combobox.currentIndex()
+        selectedLayer = layers[selectedLayerIndex]
+        print(str(QgsReferencedRectangle(selectedLayer.extent(), selectedLayer.crs())))
+    else:
+        throw_error("Could not get checked extent box.")
+
+
+def throw_error(message):
+    # TODO improve error handling
+    print(message)
