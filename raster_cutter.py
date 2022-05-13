@@ -21,7 +21,8 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
 from PyQt5.QtWidgets import QMenu
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
@@ -30,6 +31,9 @@ import qgis.core
 from qgis.core import (QgsProcessingParameterDefinition,
                        QgsProcessingParameters,
                        QgsProject,
+                       QgsMapSettings,
+                       QgsRectangle,
+                       QgsMapRendererCustomPainterJob,
                        QgsReferencedRectangle,
                        QgsMapLayerProxyModel)
 
@@ -194,7 +198,8 @@ class RasterCutter:
             self.first_start = False
             self.dlg = RasterCutterDialog()
 
-        load_layer_items(self)
+        layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
+        load_layer_items(self, layers)
 
         # show the dialog
         self.dlg.show()
@@ -202,29 +207,52 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            get_extent(self)
+            selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
+            extent = get_extent(self, layers)
+            save_image(selected_layer, extent)
 
 
-def load_layer_items(self):
+def load_layer_items(self, layers):
     # Load the layers and add them to the combobox
-    layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
     layer_list = []
     for layer in layers:
         layer_list.append(layer.name())
         self.dlg.layer_combobox.addItems(layer_list)
 
 
-def get_extent(self):
+def get_extent(self, selected_layer):
     if self.dlg.canvas_extent_radiobtn.isChecked():
-        print(str(QgsReferencedRectangle(self.iface.mapCanvas().extent(),
-                                         self.iface.mapCanvas().mapSettings().destinationCrs())))
+        return self.iface.mapCanvas().extent()
     elif self.dlg.layer_extent_radiobtn.isChecked():
-        layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
-        selectedLayerIndex = self.dlg.layer_combobox.currentIndex()
-        selectedLayer = layers[selectedLayerIndex]
-        print(str(QgsReferencedRectangle(selectedLayer.extent(), selectedLayer.crs())))
+        return selected_layer.extent()
     else:
         throw_error("Could not get checked extent box.")
+
+
+def save_image(selected_layer, extent):
+    img = QImage(QSize(800, 800), QImage.Format_ARGB32_Premultiplied)
+    # set background color
+    color = QColor(255, 255, 255, 255)
+    img.fill(color.rgba())
+    # create painter with antialiasing
+    p = QPainter()
+    p.begin(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    # create map settings
+    ms = QgsMapSettings()
+    ms.setBackgroundColor(color)
+    # set layers to render
+    ms.setLayers([selected_layer])
+    rect = QgsRectangle(extent)
+    rect.scale(1.1)
+    ms.setExtent(rect)
+    ms.setOutputSize(img.size())
+    # setup qgis map renderer
+    render = QgsMapRendererCustomPainterJob(ms, p)
+    render.start()
+    render.waitForFinished()
+    p.end()
+    img.save("C:/Users/zahne/Desktop/render.png")
 
 
 def throw_error(message):
