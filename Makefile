@@ -65,7 +65,7 @@ PEP8EXCLUDE=pydev,resources.py,conf.py,third_party,ui
 #	* Windows:
 #	  AppData\Roaming\QGIS\QGIS3\profiles\default\python\plugins'
 
-QGISDIR=C:\Users\zahne\AppData/Roaming/QGIS/QGIS3/profiles/default/python/plugins
+QGISDIR=C:\Users\zahne\AppData/Roaming/QGIS/QGIS3/profiles/default
 
 #################################################
 # Normally you would not need to edit below here
@@ -120,7 +120,7 @@ deploy: compile doc transcompile
 	# The deploy  target only works on unix like operating system where
 	# the Python plugin directory is located at:
 	# $HOME/$(QGISDIR)/python/plugins
-	mkdir -p $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	mkdir -p $(QGISDIR)/python/plugins/$(PLUGINNAME)
 	cp -vf $(PY_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
 	cp -vf $(UI_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
 	cp -vf $(COMPILED_RESOURCE_FILES) $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
@@ -138,8 +138,8 @@ dclean:
 	@echo "-----------------------------------"
 	@echo "Removing any compiled python files."
 	@echo "-----------------------------------"
-	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname "*.pyc" -delete
-	find $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME) -iname ".git" -prune -exec rm -Rf {} \;
+	find $(QGISDIR)/python/plugins/$(PLUGINNAME) -iname "*.pyc" -delete
+	find $(QGISDIR)/python/plugins/$(PLUGINNAME) -iname ".git" -prune -exec rm -Rf {} \;
 
 
 derase:
@@ -147,7 +147,7 @@ derase:
 	@echo "-------------------------"
 	@echo "Removing deployed plugin."
 	@echo "-------------------------"
-	rm -Rf $(HOME)/$(QGISDIR)/python/plugins/$(PLUGINNAME)
+	rm -Rf $(QGISDIR)/python/plugins/$(PLUGINNAME)
 
 zip: deploy dclean
 	@echo
@@ -157,7 +157,7 @@ zip: deploy dclean
 	# The zip target deploys the plugin and creates a zip file with the deployed
 	# content. You can then upload the zip file on http://plugins.qgis.org
 	rm -f $(PLUGINNAME).zip
-	cd $(HOME)/$(QGISDIR)/python/plugins; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
+	cd $(QGISDIR)/python/plugins; zip -9r $(CURDIR)/$(PLUGINNAME).zip $(PLUGINNAME)
 
 package: compile
 	# Create a zip package of the plugin named $(PLUGINNAME).zip.

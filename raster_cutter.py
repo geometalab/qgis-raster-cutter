@@ -24,6 +24,7 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+import qgis.core
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -188,6 +189,15 @@ class RasterCutter:
         if self.first_start == True:
             self.first_start = False
             self.dlg = RasterCutterDialog()
+
+
+        # Load the layers and add them to the combobox
+        layers = [layer for layer in qgis.core.QgsProject.instance().mapLayers().values()]
+        layer_list = []
+        for layer in layers:
+            layer_list.append(layer.name())
+            self.dlg.comboBox.addItems(layer_list)
+
 
         # show the dialog
         self.dlg.show()
