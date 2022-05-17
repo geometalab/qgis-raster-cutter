@@ -34,8 +34,8 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsMapSettings,
                        QgsRectangle,
                        QgsMapRendererCustomPainterJob,
-QgsCoordinateReferenceSystem,
-QgsCoordinateTransform,
+                       QgsCoordinateReferenceSystem,
+                       QgsCoordinateTransform,
                        QgsReferencedRectangle,
                        QgsMapLayerProxyModel)
 
@@ -44,6 +44,7 @@ from .resources import *
 # Import the code for the dialog
 from .raster_cutter_dialog import RasterCutterDialog
 import os.path
+
 
 # TODO logo
 # TODO remove test button
@@ -202,8 +203,11 @@ class RasterCutter:
             self.first_start = False
             self.dlg = RasterCutterDialog()
 
+        # get all layers in project and put them in the layer dropdown
         layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
         load_layer_items(self, layers)
+
+        self.dlg.file_dest_status.setText(os.path.expanduser('~'))  # set default save dir to user home
 
         set_bindings(self)
 
@@ -214,19 +218,24 @@ class RasterCutter:
         # See if OK was pressed
         if result:
             selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
-            extent = get_extent(self, selected_layer)
-            extent = convert_extent_crs(extent, selected_layer)
-            extent = clip_extent_to_square(extent)
-            extent = round_extent(extent)
-            directory_url = self.dlg.file_dest_status.text()
-            if self.dlg.lexocad_checkbox.isChecked():
+            extent = get_extent(self, selected_layer)  # extent in project crs
+            extent = convert_extent_crs_to_2056(extent)  # extent gets converted to 2056
+            extent = round_extent(extent)  # values get rounded
+            extent = clip_extent_to_square(extent)  # extent gets cropped to a square
+
+            directory_url = self.dlg.file_dest_status.text()  # read the file location from form label
+            if self.dlg.lexocad_checkbox.isChecked():  # if "Generate Lexocad support files" box is checked
                 generate_lexocad_files(directory_url, extent)
-            save_image(selected_layer, extent, directory_url=directory_url)
+
+            # as the save_image function uses the crs of the layer to save, the extent (currently in EPSG:2056) needs
+            # to be converted to the crs of the layer
+            save_image(selected_layer, extent=convert_extent_crs_to_layer(extent, selected_layer),
+                       directory_url=directory_url)
 
 
 def set_bindings(self):
     self.dlg.file_dest_btn.clicked.connect(lambda: open_file_browser(self))
-    self.dlg.test_btn.clicked.connect(lambda: generate_lexocad_files("C:/Users/zahne/Desktop/testfile.jpg"))
+    self.dlg.test_btn.clicked.connect(lambda: print(os.path.expanduser('~')))
 
 
 def load_layer_items(self, layers):
@@ -246,13 +255,24 @@ def get_extent(self, selected_layer):
     elif self.dlg.layer_extent_radiobtn.isChecked():
         return selected_layer.extent()
     else:
-        throw_error("Could not get checked extent box.")
+        throw_error("Could not get checked extent radio button.")
 
-def convert_extent_crs(extent, selected_layer):
+
+def convert_extent_crs_to_2056(extent):
+    # Converts an extent (CRS of project) to CH1903+ / LV95, as required by lexocad
+    src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
+    dst_crs = QgsCoordinateReferenceSystem.fromEpsgId(2056)
+    coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
+    return coords_transform.transform(extent)
+
+
+def convert_extent_crs_to_layer(extent, selected_layer):
+    # Converts an extent (CH1903+ / LV95) to match CRS of layer, as required to save image
     src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
     dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
     coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
     return coords_transform.transform(extent)
+
 
 def clip_extent_to_square(extent):
     width = extent.xMaximum() - extent.xMinimum()
@@ -282,7 +302,7 @@ def round_extent(extent):
 
 
 def save_image(selected_layer, extent, directory_url):
-    img = QImage(QSize(800, 800), QImage.Format_ARGB32_Premultiplied)
+    img = QImage(QSize(2000, 2000), QImage.Format_ARGB32_Premultiplied)
     # set background color
     color = QColor(255, 255, 255, 255)
     img.fill(color.rgba())
@@ -295,9 +315,8 @@ def save_image(selected_layer, extent, directory_url):
     ms.setBackgroundColor(color)
     # set layers to render
     ms.setLayers([selected_layer])
-    rect = QgsRectangle(extent)
     # rect.scale(1.1)
-    ms.setExtent(rect)
+    ms.setExtent(extent)
     ms.setOutputSize(img.size())
     # setup qgis map renderer
     render = QgsMapRendererCustomPainterJob(ms, p)
@@ -319,10 +338,7 @@ def generate_worldfile(directoryUrl):
 
 def generate_lexocad_files(directoryUrl, extent):
     # TODO test with other crs's
-    print(extent.xMaximum())
-    print(extent.yMaximum())
-    print(extent.xMinimum())
-    print(extent.yMinimum())
+    # TODO are decimal places supported?
     width = extent.xMaximum() - extent.xMinimum()
     height = extent.yMaximum() - extent.yMinimum()
     with open(directoryUrl + "l", 'w') as f:
@@ -333,8 +349,8 @@ def generate_lexocad_files(directoryUrl, extent):
             str(int(height)) + "\n" +
             "\n" +
             "# cadwork swisstopo" + "\n" +
-            "# " + str(int(extent.xMinimum())) + " " + str(int(extent.yMinimum())) + "\n" +
-            "# " + str(int(width)) + " " + str(int(height)) + "\n" +
+            "# " + str(extent.xMinimum()) + " " + str(extent.yMinimum()) + "\n" +
+            "# " + str(width) + " " + str(height) + "\n" +
             "# projection: EPSG:2056 - CH1903+ / LV95"
         )
 
