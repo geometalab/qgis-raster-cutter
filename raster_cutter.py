@@ -34,6 +34,8 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsMapSettings,
                        QgsRectangle,
                        QgsMapRendererCustomPainterJob,
+QgsCoordinateReferenceSystem,
+QgsCoordinateTransform,
                        QgsReferencedRectangle,
                        QgsMapLayerProxyModel)
 
@@ -211,7 +213,8 @@ class RasterCutter:
         if result:
             selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
             extent = get_extent(self, selected_layer)
-            # extent = round_extent(extent)
+            extent = convert_extent_crs(extent, selected_layer)
+            extent = round_extent(extent)
             directory_url = self.dlg.file_dest_status.text()
             if self.dlg.lexocad_checkbox.isChecked():
                 generate_lexocad_files(directory_url, extent)
@@ -239,6 +242,12 @@ def get_extent(self, selected_layer):
         return selected_layer.extent()
     else:
         throw_error("Could not get checked extent box.")
+
+def convert_extent_crs(extent, selected_layer):
+    src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
+    dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
+    coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
+    return coords_transform.transform(extent)
 
 
 def round_extent(extent):
