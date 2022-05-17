@@ -23,7 +23,7 @@
 """
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
-from PyQt5.QtWidgets import QMenu
+from PyQt5.QtWidgets import QMenu, QFileDialog
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
@@ -201,6 +201,8 @@ class RasterCutter:
         layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
         load_layer_items(self, layers)
 
+        set_bindings(self)
+
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
@@ -208,8 +210,17 @@ class RasterCutter:
         # See if OK was pressed
         if result:
             selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
-            extent = get_extent(self, layers)
-            save_image(selected_layer, extent)
+            extent = get_extent(self, selected_layer)
+            # extent = round_extent(extent)
+            directory_url = self.dlg.file_dest_status.text()
+            if self.dlg.lexocad_checkbox.isChecked():
+                generate_lexocad_files(directory_url, extent)
+            save_image(selected_layer, extent, directory_url=directory_url)
+
+
+def set_bindings(self):
+    self.dlg.file_dest_btn.clicked.connect(lambda: open_file_browser(self))
+    self.dlg.test_btn.clicked.connect(lambda: generate_lexocad_files("C:/Users/zahne/Desktop/testfile.jpg"))
 
 
 def load_layer_items(self, layers):
@@ -217,6 +228,7 @@ def load_layer_items(self, layers):
     layer_list = []
     for layer in layers:
         layer_list.append(layer.name())
+        self.dlg.layer_combobox.clear()
         self.dlg.layer_combobox.addItems(layer_list)
 
 
@@ -229,7 +241,16 @@ def get_extent(self, selected_layer):
         throw_error("Could not get checked extent box.")
 
 
-def save_image(selected_layer, extent):
+def round_extent(extent):
+    return QgsRectangle(
+        round(extent.xMinimum()),
+        round(extent.yMinimum()),
+        round(extent.xMaximum()),
+        round(extent.yMaximum()),
+    )
+
+
+def save_image(selected_layer, extent, directory_url):
     img = QImage(QSize(800, 800), QImage.Format_ARGB32_Premultiplied)
     # set background color
     color = QColor(255, 255, 255, 255)
@@ -244,7 +265,7 @@ def save_image(selected_layer, extent):
     # set layers to render
     ms.setLayers([selected_layer])
     rect = QgsRectangle(extent)
-    rect.scale(1.1)
+    # rect.scale(1.1)
     ms.setExtent(rect)
     ms.setOutputSize(img.size())
     # setup qgis map renderer
@@ -252,7 +273,29 @@ def save_image(selected_layer, extent):
     render.start()
     render.waitForFinished()
     p.end()
-    img.save("C:/Users/zahne/Desktop/render.png")
+    img.save(directory_url)
+
+
+def open_file_browser(self):
+    filename = QFileDialog.getSaveFileName(caption="Save File", filter="PNG (*.png);;JPG (*.jpg)")[0]
+    self.dlg.file_dest_status.setText(filename)
+
+
+def generate_worldfile(directoryUrl):
+    print("unimplemented")
+
+
+def generate_lexocad_files(directoryUrl, extent):
+    print(extent.xMaximum())
+    print(extent.yMaximum())
+    print(extent.xMinimum())
+    print(extent.yMinimum())
+    width = extent.xMaximum() - extent.xMinimum()
+    height = extent.yMaximum() - extent.yMinimum()
+    print(width)
+    print(height)
+    with open(directoryUrl + "l", 'w') as f:
+        f.write('Create a new text file!')
 
 
 def throw_error(message):

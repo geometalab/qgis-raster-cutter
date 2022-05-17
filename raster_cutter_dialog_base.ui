@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>723</width>
+    <height>337</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,10 +16,10 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>30</x>
-     <y>240</y>
-     <width>341</width>
-     <height>32</height>
+     <x>20</x>
+     <y>290</y>
+     <width>691</width>
+     <height>41</height>
     </rect>
    </property>
    <property name="orientation">
@@ -32,17 +32,29 @@
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
     <rect>
-     <x>29</x>
+     <x>19</x>
      <y>19</y>
-     <width>331</width>
-     <height>211</height>
+     <width>691</width>
+     <height>261</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
+      <property name="spacing">
+       <number>4</number>
+      </property>
+      <property name="sizeConstraint">
+       <enum>QLayout::SetDefaultConstraint</enum>
+      </property>
       <item>
        <widget class="QLabel" name="layer_label">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>30</height>
+         </size>
+        </property>
         <property name="text">
          <string>Layer</string>
         </property>
@@ -75,22 +87,81 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QLabel" name="save_as_label">
+       <widget class="QLabel" name="file_dest_label">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>15</height>
+         </size>
+        </property>
         <property name="text">
-         <string>Save as ...</string>
+         <string>Save to:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="save_as_combobox"/>
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
+        <item>
+         <widget class="QLabel" name="file_dest_status">
+          <property name="text">
+           <string>TextLabel</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="file_dest_btn">
+          <property name="maximumSize">
+           <size>
+            <width>100</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Browse</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="worldfile_checkbox">
+        <property name="text">
+         <string>Generate World File</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="lexocad_checkbox">
+        <property name="text">
+         <string>Generate Lexocad Support Files</string>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
    </layout>
   </widget>
+  <widget class="QPushButton" name="test_btn">
+   <property name="geometry">
+    <rect>
+     <x>440</x>
+     <y>290</y>
+     <width>83</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>test</string>
+   </property>
+  </widget>
  </widget>
+ <tabstops>
+  <tabstop>canvas_extent_radiobtn</tabstop>
+  <tabstop>layer_combobox</tabstop>
+  <tabstop>layer_extent_radiobtn</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
