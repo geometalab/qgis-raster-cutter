@@ -47,7 +47,9 @@ import os.path
 
 
 # TODO logo
+# TODO help button
 # TODO remove test button
+# TODO maybe allow user to set resolution and aspect ratio
 
 class RasterCutter:
     """QGIS Plugin Implementation."""
@@ -202,12 +204,11 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
+            self.dlg.file_dest_status.setText(os.path.expanduser('~'))  # set default save dir to user home
 
         # get all layers in project and put them in the layer dropdown
         layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
         load_layer_items(self, layers)
-
-        self.dlg.file_dest_status.setText(os.path.expanduser('~'))  # set default save dir to user home
 
         set_bindings(self)
 
@@ -268,7 +269,7 @@ def convert_extent_crs_to_2056(extent):
 
 def convert_extent_crs_to_layer(extent, selected_layer):
     # Converts an extent (CH1903+ / LV95) to match CRS of layer, as required to save image
-    src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
+    src_crs = QgsCoordinateReferenceSystem.fromEpsgId(2056)
     dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
     coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
     return coords_transform.transform(extent)
