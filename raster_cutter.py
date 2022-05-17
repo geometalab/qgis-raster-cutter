@@ -45,6 +45,8 @@ from .resources import *
 from .raster_cutter_dialog import RasterCutterDialog
 import os.path
 
+# TODO logo
+# TODO remove test button
 
 class RasterCutter:
     """QGIS Plugin Implementation."""
@@ -214,6 +216,7 @@ class RasterCutter:
             selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
             extent = get_extent(self, selected_layer)
             extent = convert_extent_crs(extent, selected_layer)
+            extent = clip_extent_to_square(extent)
             extent = round_extent(extent)
             directory_url = self.dlg.file_dest_status.text()
             if self.dlg.lexocad_checkbox.isChecked():
@@ -228,6 +231,7 @@ def set_bindings(self):
 
 def load_layer_items(self, layers):
     # Load the layers and add them to the combobox
+    # TODO make it so that the selected layer in qgis is selected in dropdown
     layer_list = []
     for layer in layers:
         layer_list.append(layer.name())
@@ -236,6 +240,7 @@ def load_layer_items(self, layers):
 
 
 def get_extent(self, selected_layer):
+    # todo test with layer extent
     if self.dlg.canvas_extent_radiobtn.isChecked():
         return self.iface.mapCanvas().extent()
     elif self.dlg.layer_extent_radiobtn.isChecked():
@@ -248,6 +253,23 @@ def convert_extent_crs(extent, selected_layer):
     dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
     coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
     return coords_transform.transform(extent)
+
+def clip_extent_to_square(extent):
+    width = extent.xMaximum() - extent.xMinimum()
+    height = extent.yMaximum() - extent.yMinimum()
+    # get the value of either extent width or height, whichever is longest
+    longer_side = width
+    if height > longer_side:
+        longer_side = height
+    center_x = extent.center().x()
+    center_y = extent.center().y()
+    # return a square extent, with a height and with of the longer side and a center of the supplied extent
+    return QgsRectangle(
+        center_x - (longer_side / 2),
+        center_y - (longer_side / 2),
+        center_x + (longer_side / 2),
+        center_y + (longer_side / 2)
+    )
 
 
 def round_extent(extent):
@@ -286,6 +308,7 @@ def save_image(selected_layer, extent, directory_url):
 
 
 def open_file_browser(self):
+    # TODO default file path for label should be defined
     filename = QFileDialog.getSaveFileName(caption="Save File", filter="PNG (*.png);;JPG (*.jpg)")[0]
     self.dlg.file_dest_status.setText(filename)
 
@@ -295,16 +318,25 @@ def generate_worldfile(directoryUrl):
 
 
 def generate_lexocad_files(directoryUrl, extent):
+    # TODO test with other crs's
     print(extent.xMaximum())
     print(extent.yMaximum())
     print(extent.xMinimum())
     print(extent.yMinimum())
     width = extent.xMaximum() - extent.xMinimum()
     height = extent.yMaximum() - extent.yMinimum()
-    print(width)
-    print(height)
     with open(directoryUrl + "l", 'w') as f:
-        f.write('Create a new text file!')
+        f.write(
+            str(int(extent.xMinimum())) + "\n" +
+            str(int(extent.yMinimum())) + "\n" +
+            str(int(width)) + "\n" +
+            str(int(height)) + "\n" +
+            "\n" +
+            "# cadwork swisstopo" + "\n" +
+            "# " + str(int(extent.xMinimum())) + " " + str(int(extent.yMinimum())) + "\n" +
+            "# " + str(int(width)) + " " + str(int(height)) + "\n" +
+            "# projection: EPSG:2056 - CH1903+ / LV95"
+        )
 
 
 def throw_error(message):
