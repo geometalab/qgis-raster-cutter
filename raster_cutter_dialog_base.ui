@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>453</width>
-    <height>337</height>
+    <width>616</width>
+    <height>473</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,9 +16,9 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>290</y>
-     <width>421</width>
+     <x>10</x>
+     <y>410</y>
+     <width>591</width>
      <height>41</height>
     </rect>
    </property>
@@ -34,8 +34,8 @@
     <rect>
      <x>19</x>
      <y>19</y>
-     <width>421</width>
-     <height>261</height>
+     <width>581</width>
+     <height>391</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -61,30 +61,12 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="layer_combobox"/>
+       <widget class="QgsMapLayerComboBox" name="layer_combobox"/>
       </item>
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_3">
-      <item>
-       <widget class="QRadioButton" name="canvas_extent_radiobtn">
-        <property name="text">
-         <string>Canvas Extent</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="layer_extent_radiobtn">
-        <property name="text">
-         <string>Layer Extent</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QgsExtentGroupBox" name="extent_box"/>
     </item>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -102,28 +84,17 @@
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_6">
-        <item>
-         <widget class="QLabel" name="file_dest_status">
-          <property name="text">
-           <string>TextLabel</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="file_dest_btn">
-          <property name="maximumSize">
-           <size>
-            <width>100</width>
-            <height>30</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Browse</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+       <widget class="QgsFileWidget" name="file_dest_field">
+        <property name="filter">
+         <string>PNG (*.png);;JPG (*.jpg)</string>
+        </property>
+        <property name="storageMode">
+         <enum>QgsFileWidget::SaveFile</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_6"/>
       </item>
       <item>
        <widget class="QCheckBox" name="worldfile_checkbox">
@@ -141,13 +112,27 @@
       </item>
      </layout>
     </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>Destination CRS</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="crs_combobox"/>
+      </item>
+     </layout>
+    </item>
    </layout>
   </widget>
   <widget class="QPushButton" name="test_btn">
    <property name="geometry">
     <rect>
-     <x>110</x>
-     <y>290</y>
+     <x>330</x>
+     <y>420</y>
      <width>83</width>
      <height>29</height>
     </rect>
@@ -157,11 +142,30 @@
    </property>
   </widget>
  </widget>
- <tabstops>
-  <tabstop>canvas_extent_radiobtn</tabstop>
-  <tabstop>layer_combobox</tabstop>
-  <tabstop>layer_extent_radiobtn</tabstop>
- </tabstops>
+ <customwidgets>
+  <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QgsExtentGroupBox</class>
+   <extends>QgsCollapsibleGroupBox</extends>
+   <header>qgsextentgroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QgsFileWidget</class>
+   <extends>QWidget</extends>
+   <header>qgsfilewidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QgsMapLayerComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgsmaplayercombobox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

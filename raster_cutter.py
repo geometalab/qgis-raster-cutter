@@ -32,6 +32,7 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsProcessingParameters,
                        QgsProject,
                        QgsMapSettings,
+                       QgsMapLayer,
                        QgsRectangle,
                        QgsMapRendererCustomPainterJob,
                        QgsCoordinateReferenceSystem,
@@ -44,6 +45,7 @@ from .resources import *
 # Import the code for the dialog
 from .raster_cutter_dialog import RasterCutterDialog
 import os.path
+from osgeo import gdal, ogr
 
 
 # TODO logo
@@ -204,13 +206,8 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
-            self.dlg.file_dest_status.setText(os.path.expanduser('~'))  # set default save dir to user home
 
-        # get all layers in project and put them in the layer dropdown
-        layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
-        load_layer_items(self, layers)
-
-        set_bindings(self)
+        widget_init(self)
 
         # show the dialog
         self.dlg.show()
@@ -218,45 +215,38 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
-            extent = get_extent(self, selected_layer)  # extent in project crs
-            extent = convert_extent_crs_to_2056(extent)  # extent gets converted to 2056
-            extent = round_extent(extent)  # values get rounded
-            extent = clip_extent_to_square(extent)  # extent gets cropped to a square
+            directory_url = self.dlg.file_dest_field.text()  # read the file location from form label
+            selected_layer = self.dlg.layer_combobox.currentLayer()
+            src = gdal.Open(r"C:\Users\zahne\Documents\geotiff.tif", gdal.GA_ReadOnly)
+            print("Metadata")
+            print(src.GetMetadata())
+            src_proj = src.GetProjection()
+            print("Projecttion")
+            print(src_proj)
+            dst_proj = gdal.Translate(directory_url, src, format="JPEG", options="-co WORLDFILE=YES")
+            print(dst_proj)
 
-            directory_url = self.dlg.file_dest_status.text()  # read the file location from form label
             if self.dlg.lexocad_checkbox.isChecked():  # if "Generate Lexocad support files" box is checked
-                generate_lexocad_files(directory_url, extent)
-
-            # as the save_image function uses the crs of the layer to save, the extent (currently in EPSG:2056) needs
-            # to be converted to the crs of the layer
-            save_image(selected_layer, extent=convert_extent_crs_to_layer(extent, selected_layer),
-                       directory_url=directory_url)
+                print("todo")
 
 
-def set_bindings(self):
-    self.dlg.file_dest_btn.clicked.connect(lambda: open_file_browser(self))
+def widget_init(self):
+    # input layer init
+    self.dlg.layer_combobox.setShowCrs(True)
+    on_layer_changed(self)
+
+    # extentbox init
+    self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
+                                          originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
+    self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
+                                         currentCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
+    self.dlg.extent_box.setOutputCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
+
     self.dlg.test_btn.clicked.connect(lambda: print(os.path.expanduser('~')))
 
 
-def load_layer_items(self, layers):
-    # Load the layers and add them to the combobox
-    # TODO make it so that the selected layer in qgis is selected in dropdown
-    layer_list = []
-    for layer in layers:
-        layer_list.append(layer.name())
-        self.dlg.layer_combobox.clear()
-        self.dlg.layer_combobox.addItems(layer_list)
-
-
-def get_extent(self, selected_layer):
-    # todo test with layer extent
-    if self.dlg.canvas_extent_radiobtn.isChecked():
-        return self.iface.mapCanvas().extent()
-    elif self.dlg.layer_extent_radiobtn.isChecked():
-        return selected_layer.extent()
-    else:
-        throw_error("Could not get checked extent radio button.")
+def on_layer_changed(self):
+    print("layer changed")
 
 
 def convert_extent_crs_to_2056(extent):
@@ -325,12 +315,6 @@ def save_image(selected_layer, extent, directory_url):
     render.waitForFinished()
     p.end()
     img.save(directory_url)
-
-
-def open_file_browser(self):
-    # TODO default file path for label should be defined
-    filename = QFileDialog.getSaveFileName(caption="Save File", filter="PNG (*.png);;JPG (*.jpg)")[0]
-    self.dlg.file_dest_status.setText(filename)
 
 
 def generate_worldfile(directoryUrl):
