@@ -207,6 +207,7 @@ class RasterCutter:
             self.first_start = False
             self.dlg = RasterCutterDialog()
 
+        self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))
         widget_init(self)
 
         # show the dialog
@@ -215,9 +216,9 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            directory_url = self.dlg.file_dest_field.text()  # read the file location from form label
+            directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
             selected_layer = self.dlg.layer_combobox.currentLayer()
-            src = gdal.Open(r"C:\Users\zahne\Documents\geotiff.tif", gdal.GA_ReadOnly)
+            src = gdal.Open(selected_layer.dataProvider().dataSourceUri(), gdal.GA_ReadOnly)
             print("Metadata")
             print(src.GetMetadata())
             src_proj = src.GetProjection()
@@ -246,6 +247,8 @@ def widget_init(self):
 
 
 def on_layer_changed(self):
+    self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
+                                          originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
     print("layer changed")
 
 
