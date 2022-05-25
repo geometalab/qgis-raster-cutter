@@ -38,7 +38,15 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsCoordinateReferenceSystem,
                        QgsCoordinateTransform,
                        QgsReferencedRectangle,
-                       QgsMapLayerProxyModel)
+                        QgsProcessingContext,
+                        QgsTaskManager,
+                        QgsTask,
+                        QgsProcessingAlgRunnerTask,
+                        Qgis,
+                        QgsProcessingFeedback,
+                        QgsApplication,
+                        QgsMessageLog,
+                        QgsMapLayerProxyModel)
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -206,9 +214,11 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
+            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
+            widget_init(self)
 
-        self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))
-        widget_init(self)
+        self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
+                                             currentCrs=QgsProject.instance().crs())
 
         # show the dialog
         self.dlg.show()
@@ -219,16 +229,41 @@ class RasterCutter:
             directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
             selected_layer = self.dlg.layer_combobox.currentLayer()
             src = gdal.Open(selected_layer.dataProvider().dataSourceUri(), gdal.GA_ReadOnly)
-            print("Metadata")
-            print(src.GetMetadata())
-            src_proj = src.GetProjection()
-            print("Projecttion")
-            print(src_proj)
-            dst_proj = gdal.Translate(directory_url, src, format="JPEG", options="-co WORLDFILE=YES")
-            print(dst_proj)
 
-            if self.dlg.lexocad_checkbox.isChecked():  # if "Generate Lexocad support files" box is checked
+            options_string = ""
+            format_string = None
+
+            # Set format string and format specific settings
+            if directory_url.endswith(".jpg"):
+                format_string = "JPEG"
+                # enables progressive jpg creation (https://gdal.org/drivers/raster/jpeg.html#creation-options)
+                # options_string += "-co PROGRESSIVE=ON, "
+            elif directory_url.endswith(".png"):
+                format_string = "PNG"
+
+            # Add worldfile option if checkbox is checked
+            if self.dlg.worldfile_checkbox.isChecked():
+                options_string += "-co WORLDFILE=YES, "
+
+            options_string += "-projwin "
+            options_string += get_extent_win(self)
+            options_string += ", "
+            print(options_string)
+
+            # Create lexocad support files if checkbox is checked
+            if self.dlg.lexocad_checkbox.isChecked():
                 print("todo")
+
+            warped = gdal.Warp("C:/Users/zahne/Desktop/temp.tif", src, dstSRS=get_target_projection(self).authid())
+            print("Done warping, starting translate...")
+            translated = gdal.Translate(directory_url, warped, width=1024, height=0, format=format_string,
+                           options=options_string)
+            print("Done translating, flushing disk...")
+            # Flush disk
+            src = None
+            warped = None
+            translated = None
+            print("Done.")
 
 
 def widget_init(self):
@@ -238,90 +273,27 @@ def widget_init(self):
 
     # extentbox init
     self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
-                                          originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
-    self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
-                                         currentCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
-    self.dlg.extent_box.setOutputCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
+                                          originalCrs=QgsProject.instance().crs())
+    self.dlg.extent_box.setOutputCrs(get_target_projection(self))
 
-    self.dlg.test_btn.clicked.connect(lambda: print(os.path.expanduser('~')))
+    self.dlg.test_btn.clicked.connect(lambda: print(get_target_projection(self).authid()))  # TODO remove
 
 
 def on_layer_changed(self):
-    self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
-                                          originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
+    # self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
+    #                                       originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
     print("layer changed")
 
 
-def convert_extent_crs_to_2056(extent):
-    # Converts an extent (CRS of project) to CH1903+ / LV95, as required by lexocad
-    src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
-    dst_crs = QgsCoordinateReferenceSystem.fromEpsgId(2056)
-    coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
-    return coords_transform.transform(extent)
+def get_target_projection(self):
+    return QgsCoordinateReferenceSystem.fromEpsgId(2056)
 
 
-def convert_extent_crs_to_layer(extent, selected_layer):
-    # Converts an extent (CH1903+ / LV95) to match CRS of layer, as required to save image
-    src_crs = QgsCoordinateReferenceSystem.fromEpsgId(2056)
-    dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
-    coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
-    return coords_transform.transform(extent)
-
-
-def clip_extent_to_square(extent):
-    width = extent.xMaximum() - extent.xMinimum()
-    height = extent.yMaximum() - extent.yMinimum()
-    # get the value of either extent width or height, whichever is longest
-    longer_side = width
-    if height > longer_side:
-        longer_side = height
-    center_x = extent.center().x()
-    center_y = extent.center().y()
-    # return a square extent, with a height and with of the longer side and a center of the supplied extent
-    return QgsRectangle(
-        center_x - (longer_side / 2),
-        center_y - (longer_side / 2),
-        center_x + (longer_side / 2),
-        center_y + (longer_side / 2)
-    )
-
-
-def round_extent(extent):
-    return QgsRectangle(
-        round(extent.xMinimum()),
-        round(extent.yMinimum()),
-        round(extent.xMaximum()),
-        round(extent.yMaximum()),
-    )
-
-
-def save_image(selected_layer, extent, directory_url):
-    img = QImage(QSize(2000, 2000), QImage.Format_ARGB32_Premultiplied)
-    # set background color
-    color = QColor(255, 255, 255, 255)
-    img.fill(color.rgba())
-    # create painter with antialiasing
-    p = QPainter()
-    p.begin(img)
-    p.setRenderHint(QPainter.Antialiasing)
-    # create map settings
-    ms = QgsMapSettings()
-    ms.setBackgroundColor(color)
-    # set layers to render
-    ms.setLayers([selected_layer])
-    # rect.scale(1.1)
-    ms.setExtent(extent)
-    ms.setOutputSize(img.size())
-    # setup qgis map renderer
-    render = QgsMapRendererCustomPainterJob(ms, p)
-    render.start()
-    render.waitForFinished()
-    p.end()
-    img.save(directory_url)
-
-
-def generate_worldfile(directoryUrl):
-    print("unimplemented")
+def get_extent_win(self):
+    e = self.dlg.extent_box.outputExtent()
+    print("Output Crs: " + str(self.dlg.extent_box.outputCrs()))
+    print("%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum()))
+    return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
 
 
 def generate_lexocad_files(directoryUrl, extent):
