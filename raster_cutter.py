@@ -38,15 +38,22 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsCoordinateReferenceSystem,
                        QgsCoordinateTransform,
                        QgsReferencedRectangle,
-                        QgsProcessingContext,
-                        QgsTaskManager,
-                        QgsTask,
-                        QgsProcessingAlgRunnerTask,
-                        Qgis,
-                        QgsProcessingFeedback,
-                        QgsApplication,
-                        QgsMessageLog,
-                        QgsMapLayerProxyModel)
+                       QgsProcessingContext,
+                       QgsTaskManager,
+                       QgsTask,
+                       QgsProcessingAlgRunnerTask,
+                       Qgis,
+                       QgsProcessingFeedback,
+                       QgsApplication,
+                       QgsMessageLog,
+                       QgsTaskManager,
+                       QgsMessageLog,
+                       QgsProcessingAlgRunnerTask,
+                       QgsApplication,
+                       QgsProcessingContext,
+                       QgsProcessingFeedback,
+                       QgsProject,
+                       QgsMapLayerProxyModel)
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -54,6 +61,8 @@ from .resources import *
 from .raster_cutter_dialog import RasterCutterDialog
 import os.path
 from osgeo import gdal, ogr
+
+MESSAGE_CATEGORY = 'Raster Cutter'
 
 
 # TODO logo
@@ -253,17 +262,20 @@ class RasterCutter:
             # Create lexocad support files if checkbox is checked
             if self.dlg.lexocad_checkbox.isChecked():
                 print("todo")
-
-            warped = gdal.Warp("C:/Users/zahne/Desktop/temp.tif", src, dstSRS=get_target_projection(self).authid())
-            print("Done warping, starting translate...")
-            translated = gdal.Translate(directory_url, warped, width=1024, height=0, format=format_string,
-                           options=options_string)
-            print("Done translating, flushing disk...")
+            process_task = QgsTask.fromFunction("Creating Files", process, on_finished=completed, src=src,
+                                                directory_url=directory_url,
+                                                dest_srs=get_target_projection(self).authid(),
+                                                format_string=format_string, options_string=options_string)
+            QgsApplication.taskManager().addTask(process_task)
+            QgsMessageLog.logMessage('Creating files...', MESSAGE_CATEGORY, Qgis.Info)
+            # warped = warp("C:/Users/zahne/Desktop/temp.tif", src, get_target_projection(self).authid())
+            # print("Done warping, starting translate...")
+            # translated = translate(directory_url, warped, format_string, options_string)
+            # print("Done translating, flushing disk...")
             # Flush disk
-            src = None
-            warped = None
-            translated = None
-            print("Done.")
+            # src = None
+            # warped = None
+            # translated = None
 
 
 def widget_init(self):
@@ -273,8 +285,9 @@ def widget_init(self):
 
     # extentbox init
     self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
-                                          originalCrs=QgsProject.instance().crs())
-    self.dlg.extent_box.setOutputCrs(get_target_projection(self))
+                                          originalCrs=self.dlg.layer_combobox.currentLayer().crs())
+    self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
+    self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
 
     self.dlg.test_btn.clicked.connect(lambda: print(get_target_projection(self).authid()))  # TODO remove
 
@@ -282,11 +295,12 @@ def widget_init(self):
 def on_layer_changed(self):
     # self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
     #                                       originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
-    print("layer changed")
+    pass
 
 
 def get_target_projection(self):
-    return QgsCoordinateReferenceSystem.fromEpsgId(2056)
+    print(self.dlg.proj_selection.crs().authid())
+    return self.dlg.proj_selection.crs()
 
 
 def get_extent_win(self):
@@ -294,6 +308,35 @@ def get_extent_win(self):
     print("Output Crs: " + str(self.dlg.extent_box.outputCrs()))
     print("%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum()))
     return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
+
+
+def process(task, src, directory_url, dest_srs, format_string, options_string):
+    warped = warp("C:/Users/zahne/Desktop/temp.tif", src, dest_srs)
+    if task.isCanceled():
+        stopped(task)
+        return None
+    translate(directory_url, warped, format_string, options_string)
+
+
+def warp(out, src, dst_srs):
+    return gdal.Warp(out, src, dstSRS=dst_srs)
+
+
+def translate(directory_url, src, format_string, options_string):
+    return gdal.Translate(directory_url, src, width=1024, height=0, format=format_string,
+                          options=options_string)
+
+
+def completed(exception):
+    if exception is None:
+        QgsMessageLog.logMessage('Done.', MESSAGE_CATEGORY, Qgis.Info)
+    else:
+        QgsMessageLog.logMessage("Exception: {}".format(exception), MESSAGE_CATEGORY, Qgis.Critical)
+
+
+def stopped(task):
+    QgsMessageLog.logMessage(
+        'Task "{name}" was canceled'.format(name=task.description()), MESSAGE_CATEGORY, Qgis.Info)
 
 
 def generate_lexocad_files(directoryUrl, extent):
