@@ -69,6 +69,7 @@ MESSAGE_CATEGORY = 'Raster Cutter'
 # TODO help button
 # TODO remove test button
 # TODO maybe allow user to set resolution and aspect ratio
+# TODO add QgsSubTask for splitting tasks (report progress?)
 
 class RasterCutter:
     """QGIS Plugin Implementation."""
@@ -257,7 +258,6 @@ class RasterCutter:
             options_string += "-projwin "
             options_string += get_extent_win(self)
             options_string += ", "
-            print(options_string)
 
             # Create lexocad support files if checkbox is checked
             if self.dlg.lexocad_checkbox.isChecked():
@@ -266,17 +266,8 @@ class RasterCutter:
                                                 directory_url=directory_url,
                                                 dest_srs=get_target_projection(self).authid(),
                                                 format_string=format_string, options_string=options_string)
+            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
             QgsApplication.taskManager().addTask(process_task)
-            QgsMessageLog.logMessage('Creating files...', MESSAGE_CATEGORY, Qgis.Info)
-            # warped = warp("C:/Users/zahne/Desktop/temp.tif", src, get_target_projection(self).authid())
-            # print("Done warping, starting translate...")
-            # translated = translate(directory_url, warped, format_string, options_string)
-            # print("Done translating, flushing disk...")
-            # Flush disk
-            # src = None
-            # warped = None
-            # translated = None
-
 
 def widget_init(self):
     # input layer init
@@ -299,23 +290,26 @@ def on_layer_changed(self):
 
 
 def get_target_projection(self):
-    print(self.dlg.proj_selection.crs().authid())
     return self.dlg.proj_selection.crs()
 
 
 def get_extent_win(self):
     e = self.dlg.extent_box.outputExtent()
-    print("Output Crs: " + str(self.dlg.extent_box.outputCrs()))
-    print("%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum()))
     return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
 
 
 def process(task, src, directory_url, dest_srs, format_string, options_string):
-    warped = warp("C:/Users/zahne/Desktop/temp.tif", src, dest_srs)
+    QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
+    warped = warp('/vsimem/warped.tif', src, dest_srs)
     if task.isCanceled():
         stopped(task)
         return None
-    translate(directory_url, warped, format_string, options_string)
+    QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.Info)
+    translated = translate(directory_url, warped, format_string, options_string)
+    if task.isCanceled():
+        stopped(task)
+        return None
+    return translated
 
 
 def warp(out, src, dst_srs):
@@ -327,9 +321,10 @@ def translate(directory_url, src, format_string, options_string):
                           options=options_string)
 
 
-def completed(exception):
+def completed(exception, result=None):
     if exception is None:
-        QgsMessageLog.logMessage('Done.', MESSAGE_CATEGORY, Qgis.Info)
+        # TODO This never gets called?
+        QgsMessageLog.logMessage('Done.'.format(result), MESSAGE_CATEGORY, Qgis.Info)
     else:
         QgsMessageLog.logMessage("Exception: {}".format(exception), MESSAGE_CATEGORY, Qgis.Critical)
 
@@ -357,7 +352,3 @@ def generate_lexocad_files(directoryUrl, extent):
             "# projection: EPSG:2056 - CH1903+ / LV95"
         )
 
-
-def throw_error(message):
-    # TODO improve error handling
-    print(message)
