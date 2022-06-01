@@ -62,6 +62,8 @@ from .raster_cutter_dialog import RasterCutterDialog
 import os.path
 from osgeo import gdal, ogr
 
+from PIL import Image  # for reading dimensions of image
+
 MESSAGE_CATEGORY = 'Raster Cutter'
 
 
@@ -251,23 +253,28 @@ class RasterCutter:
             elif directory_url.endswith(".png"):
                 format_string = "PNG"
 
-            # Add worldfile option if checkbox is checked
-            if self.dlg.worldfile_checkbox.isChecked():
+            # Add worldfile option if either one of the checkboxes are checked
+            # We still need the worldfile as long as the lexocad file is wandet by the user
+            # because values for the lexocad file are calculated from the worldfile
+            if self.dlg.worldfile_checkbox.isChecked() or self.dlg.lexocad_checkbox.isChecked():
                 options_string += "-co WORLDFILE=YES, "
 
             options_string += "-projwin "
             options_string += get_extent_win(self)
             options_string += ", "
 
-            # Create lexocad support files if checkbox is checked
-            if self.dlg.lexocad_checkbox.isChecked():
-                print("todo")
-            process_task = QgsTask.fromFunction("Creating Files", process, on_finished=completed, src=src,
+            process_task = QgsTask.fromFunction("Creating Files", process,
+                                                on_finished=completed,
+                                                src=src,
                                                 directory_url=directory_url,
                                                 dest_srs=get_target_projection(self).authid(),
-                                                format_string=format_string, options_string=options_string)
-            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
+                                                format_string=format_string,
+                                                options_string=options_string,
+                                                generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
+                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),)
             QgsApplication.taskManager().addTask(process_task)
+            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
+
 
 def widget_init(self):
     # input layer init
@@ -298,7 +305,7 @@ def get_extent_win(self):
     return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
 
 
-def process(task, src, directory_url, dest_srs, format_string, options_string):
+def process(task, src, directory_url, dest_srs, format_string, options_string, generate_lexocad, generate_worldfile):
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
     warped = warp('/vsimem/warped.tif', src, dest_srs)
     if task.isCanceled():
@@ -309,7 +316,18 @@ def process(task, src, directory_url, dest_srs, format_string, options_string):
     if task.isCanceled():
         stopped(task)
         return None
+    src = None
+    warped = None
+    manage_files(generate_lexocad, generate_worldfile, directory_url)
     return translated
+
+
+def manage_files(generate_lexocad, generate_worldfile, dir_url):
+    QgsMessageLog.logMessage("Manage files", MESSAGE_CATEGORY, Qgis.Info)
+    if not generate_worldfile and generate_lexocad:
+        delete_world_file(dir_url)
+    if generate_lexocad:
+        generate_lexocad_files(dir_url)
 
 
 def warp(out, src, dst_srs):
@@ -322,6 +340,7 @@ def translate(directory_url, src, format_string, options_string):
 
 
 def completed(exception, result=None):
+    result = None  # Properly close dataset
     if exception is None:
         # TODO This never gets called?
         QgsMessageLog.logMessage('Done.'.format(result), MESSAGE_CATEGORY, Qgis.Info)
@@ -334,21 +353,46 @@ def stopped(task):
         'Task "{name}" was canceled'.format(name=task.description()), MESSAGE_CATEGORY, Qgis.Info)
 
 
-def generate_lexocad_files(directoryUrl, extent):
-    # TODO test with other crs's
-    # TODO are decimal places supported?
-    width = extent.xMaximum() - extent.xMinimum()
-    height = extent.yMaximum() - extent.yMinimum()
+def generate_lexocad_files(directoryUrl):
+    worldfile_path = get_worldfile_url_from_dir(directoryUrl)
+    with open(worldfile_path, "r") as worldfile:
+        lines = worldfile.readlines()
+    with Image.open(directoryUrl) as img:
+        src_width, src_height = img.size
+
+    width = abs(src_width * float(lines[0]))
+    height = abs(src_width * float(lines[3]))
+    xMinimum = float(lines[4])
+    yMinimum = float(lines[5]) - height
     with open(directoryUrl + "l", 'w') as f:
         f.write(
-            str(int(extent.xMinimum())) + "\n" +
-            str(int(extent.yMinimum())) + "\n" +
-            str(int(width)) + "\n" +
-            str(int(height)) + "\n" +
+            str(xMinimum) + "\n" +
+            str(yMinimum) + "\n" +
+            str(float(width)) + "\n" +
+            str(float(height)) + "\n" +
             "\n" +
             "# cadwork swisstopo" + "\n" +
-            "# " + str(extent.xMinimum()) + " " + str(extent.yMinimum()) + "\n" +
+            "# " + str(xMinimum) + " " + str(yMinimum) + "\n" +
             "# " + str(width) + " " + str(height) + "\n" +
             "# projection: EPSG:2056 - CH1903+ / LV95"
         )
 
+
+def delete_world_file(directory_url):
+    worldfile_path = get_worldfile_url_from_dir(directory_url)
+    if os.path.exists(worldfile_path):
+        os.remove(worldfile_path)
+    else:
+        raise Exception("The file does not exist")
+
+
+def get_worldfile_url_from_dir(directory_url):
+    index = directory_url.find(".")
+    if index != -1:
+        worldfile_path = directory_url[:index]
+        worldfile_path += ".wld"
+        QgsMessageLog.logMessage(
+            str(worldfile_path), MESSAGE_CATEGORY, Qgis.Info)
+    else:
+        raise Exception("Could not find . in path")
+    return worldfile_path
