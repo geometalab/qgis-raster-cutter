@@ -271,7 +271,7 @@ class RasterCutter:
                                                 format_string=format_string,
                                                 options_string=options_string,
                                                 generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
-                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),)
+                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(), )
             QgsApplication.taskManager().addTask(process_task)
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
@@ -286,14 +286,21 @@ def widget_init(self):
                                           originalCrs=self.dlg.layer_combobox.currentLayer().crs())
     self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
     self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
-
-    self.dlg.test_btn.clicked.connect(lambda: print(get_target_projection(self).authid()))  # TODO remove
+    self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
 
 
 def on_layer_changed(self):
     # self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
     #                                       originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
     pass
+
+
+def on_lexocad_toggeled(self):
+    if self.dlg.lexocad_checkbox.isChecked():
+        self.dlg.proj_selection.setEnabled(False)
+        self.dlg.proj_selection.setCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
+    else:
+        self.dlg.proj_selection.setEnabled(True)
 
 
 def get_target_projection(self):
@@ -323,11 +330,13 @@ def process(task, src, directory_url, dest_srs, format_string, options_string, g
 
 
 def manage_files(generate_lexocad, generate_worldfile, dir_url):
-    QgsMessageLog.logMessage("Manage files", MESSAGE_CATEGORY, Qgis.Info)
-    if not generate_worldfile and generate_lexocad:
-        delete_world_file(dir_url)
+    if not generate_worldfile and not generate_lexocad:
+        return
+    QgsMessageLog.logMessage("Creating sidecar files", MESSAGE_CATEGORY, Qgis.Info)
     if generate_lexocad:
         generate_lexocad_files(dir_url)
+    if not generate_worldfile and generate_lexocad:
+        delete_world_file(dir_url)
 
 
 def warp(out, src, dst_srs):
@@ -391,8 +400,6 @@ def get_worldfile_url_from_dir(directory_url):
     if index != -1:
         worldfile_path = directory_url[:index]
         worldfile_path += ".wld"
-        QgsMessageLog.logMessage(
-            str(worldfile_path), MESSAGE_CATEGORY, Qgis.Info)
     else:
         raise Exception("Could not find . in path")
     return worldfile_path

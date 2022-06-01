@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>616</width>
-    <height>454</height>
+    <height>417</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,9 +16,9 @@
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>10</x>
-     <y>410</y>
-     <width>591</width>
+     <x>20</x>
+     <y>370</y>
+     <width>581</width>
      <height>41</height>
     </rect>
    </property>
@@ -35,7 +35,7 @@
      <x>19</x>
      <y>19</y>
      <width>581</width>
-     <height>391</height>
+     <height>341</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
@@ -69,12 +69,18 @@
      <widget class="QgsExtentGroupBox" name="extent_box"/>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QHBoxLayout" name="horizontalLayout_6">
       <item>
        <widget class="QLabel" name="file_dest_label">
+        <property name="minimumSize">
+         <size>
+          <width>100</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="maximumSize">
          <size>
-          <width>16777215</width>
+          <width>100</width>
           <height>15</height>
          </size>
         </property>
@@ -93,24 +99,21 @@
         </property>
        </widget>
       </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_6"/>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="worldfile_checkbox">
-        <property name="text">
-         <string>Generate World File </string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QCheckBox" name="lexocad_checkbox">
-        <property name="text">
-         <string>Generate Lexocad Support Files </string>
-        </property>
-       </widget>
-      </item>
      </layout>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="worldfile_checkbox">
+      <property name="text">
+       <string>Generate World File </string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QCheckBox" name="lexocad_checkbox">
+      <property name="text">
+       <string>Generate Lexocad Support Files </string>
+      </property>
+     </widget>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -135,6 +138,9 @@
       </item>
       <item>
        <widget class="QgsProjectionSelectionWidget" name="proj_selection">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="sizePolicy">
          <sizepolicy hsizetype="MinimumExpanding" vsizetype="Minimum">
           <horstretch>0</horstretch>
@@ -153,24 +159,14 @@
           <height>25</height>
          </size>
         </property>
+        <property name="layoutDirection">
+         <enum>Qt::LeftToRight</enum>
+        </property>
        </widget>
       </item>
      </layout>
     </item>
    </layout>
-  </widget>
-  <widget class="QPushButton" name="test_btn">
-   <property name="geometry">
-    <rect>
-     <x>330</x>
-     <y>420</y>
-     <width>83</width>
-     <height>29</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>test</string>
-   </property>
   </widget>
  </widget>
  <customwidgets>
