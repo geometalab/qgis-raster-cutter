@@ -243,6 +243,8 @@ class RasterCutter:
             selected_layer = self.dlg.layer_combobox.currentLayer()
             data_provider = selected_layer.dataProvider()
             src, error = open_dataset(data_provider)
+            x_res, y_res=src.RasterXSize, src.RasterYSize
+            print(str(x_res) + " " + str(y_res))
             if error is not None:
                 error_message(self, error)
                 return
@@ -264,10 +266,6 @@ class RasterCutter:
             if self.dlg.worldfile_checkbox.isChecked() or self.dlg.lexocad_checkbox.isChecked():
                 options_string += "-co WORLDFILE=YES, "
 
-            options_string += "-projwin "
-            options_string += get_extent_win(self)
-            options_string += ", "
-
             process_task = QgsTask.fromFunction("Creating Files", process,
                                                 on_finished=completed,
                                                 src=src,
@@ -275,6 +273,7 @@ class RasterCutter:
                                                 dest_srs=get_target_projection(self).authid(),
                                                 format_string=format_string,
                                                 options_string=options_string,
+                                                extent_win_string=get_extent_win(self),
                                                 generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
                                                 generate_worldfile=self.dlg.worldfile_checkbox.isChecked(), )
             QgsApplication.taskManager().addTask(process_task)
@@ -317,9 +316,15 @@ def get_extent_win(self):
     return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
 
 
-def process(task, src, directory_url, dest_srs, format_string, options_string, generate_lexocad, generate_worldfile):
+def process(task, src, directory_url, dest_srs, format_string, extent_win_string, options_string, generate_lexocad: bool,
+            generate_worldfile: bool):
+    QgsMessageLog.logMessage('Cropping raster...', MESSAGE_CATEGORY, Qgis.Info)
+    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
+    if task.isCanceled():
+        stopped(task)
+        return None
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
-    warped = warp('/vsimem/warped.tif', src, dest_srs)
+    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string)
     if task.isCanceled():
         stopped(task)
         return None
@@ -345,10 +350,16 @@ def manage_files(generate_lexocad, generate_worldfile, dir_url):
 
 
 def open_dataset(data_provider):
-    gdal_string = ""
-    print(data_provider.name())
     if data_provider.name() == "wms":
-        gdal_string = "WMS:" + data_provider.dataSourceUri()
+        args = data_provider.dataSourceUri().split("&")
+        for arg in args:
+            if arg.find("url=") is not -1:
+                url = arg
+                url = url.replace("url=", "")
+        if url is None:
+            raise Exception("Could not find url parameter in data source")
+        gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
+        print(gdal_string)
     elif data_provider.name() == "gdal":
         gdal_string = data_provider.dataSourceUri()
     else:
@@ -356,13 +367,19 @@ def open_dataset(data_provider):
 
     return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
 
+def crop(out, src, extent_win_string, extent_srs):
+    return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -r bilinear, -outsize 4000 0" % (extent_win_string, extent_srs))
 
-def warp(out, src, dst_srs):
-    return gdal.Warp(out, src, dstSRS=dst_srs)
+def warp(out, src, dst_srs, extent_win_string):
+    options_string = "-t_srs %s, " % dst_srs
+    # options_string += "-te " + extent_win_string + ", "
+    # options_string += "-te_srs EPSG:4326, "  # TODO Remove
+    # options_string += "-ts 3000 0, "
+    return gdal.Warp(out, src, options=options_string)
 
 
 def translate(directory_url, src, format_string, options_string):
-    return gdal.Translate(directory_url, src, width=1024, height=0, format=format_string,
+    return gdal.Translate(directory_url, src, format=format_string,
                           options=options_string)
 
 
@@ -422,8 +439,10 @@ def get_worldfile_url_from_dir(directory_url):
         raise Exception("Could not find . in path")
     return worldfile_path
 
+
 def pre_process_checks():
     pass
+
 
 def error_message(self, message):
     QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
