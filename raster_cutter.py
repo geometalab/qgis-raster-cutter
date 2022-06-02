@@ -69,7 +69,7 @@ MESSAGE_CATEGORY = 'Raster Cutter'
 
 # TODO logo
 # TODO help button
-# TODO remove test button
+# TODO imports?
 # TODO maybe allow user to set resolution and aspect ratio
 # TODO add QgsSubTask for splitting tasks (report progress?)
 
@@ -238,9 +238,14 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
+            pre_process_checks()
             directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
             selected_layer = self.dlg.layer_combobox.currentLayer()
-            src = gdal.Open(selected_layer.dataProvider().dataSourceUri(), gdal.GA_ReadOnly)
+            data_provider = selected_layer.dataProvider()
+            src, error = open_dataset(data_provider)
+            if error is not None:
+                error_message(self, error)
+                return
 
             options_string = ""
             format_string = None
@@ -339,6 +344,19 @@ def manage_files(generate_lexocad, generate_worldfile, dir_url):
         delete_world_file(dir_url)
 
 
+def open_dataset(data_provider):
+    gdal_string = ""
+    print(data_provider.name())
+    if data_provider.name() == "wms":
+        gdal_string = "WMS:" + data_provider.dataSourceUri()
+    elif data_provider.name() == "gdal":
+        gdal_string = data_provider.dataSourceUri()
+    else:
+        return None, "Could not open given dataset: %s" % data_provider.name()
+
+    return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
+
+
 def warp(out, src, dst_srs):
     return gdal.Warp(out, src, dstSRS=dst_srs)
 
@@ -403,3 +421,10 @@ def get_worldfile_url_from_dir(directory_url):
     else:
         raise Exception("Could not find . in path")
     return worldfile_path
+
+def pre_process_checks():
+    pass
+
+def error_message(self, message):
+    QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
+    self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
