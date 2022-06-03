@@ -229,8 +229,15 @@ class RasterCutter:
             self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
             widget_init(self)
 
-        self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
-                                             currentCrs=QgsProject.instance().crs())
+        layers = [layer for layer in QgsProject.instance().mapLayers().values()]
+        if layers:  # if there are layers in the project, we can set extent box extents and crs's
+            # extentbox init
+            self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
+                                                  originalCrs=self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
+                                                 currentCrs=QgsProject.instance().crs())
 
         # show the dialog
         self.dlg.show()
@@ -238,10 +245,13 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            pre_process_checks()
             directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
             selected_layer = self.dlg.layer_combobox.currentLayer()
             data_provider = selected_layer.dataProvider()
+            error = pre_process_checks(selected_layer, data_provider)
+            if error is not None:
+                error_message(self, error)
+                return
             src, error = open_dataset(data_provider)
             x_res, y_res=src.RasterXSize, src.RasterYSize
             print(str(x_res) + " " + str(y_res))
@@ -283,20 +293,7 @@ class RasterCutter:
 def widget_init(self):
     # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
-    on_layer_changed(self)
-
-    # extentbox init
-    self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
-                                          originalCrs=self.dlg.layer_combobox.currentLayer().crs())
-    self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
-    self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
-
-
-def on_layer_changed(self):
-    # self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
-    #                                       originalCrs=QgsCoordinateReferenceSystem.fromEpsgId(2056))
-    pass
 
 
 def on_lexocad_toggeled(self):
@@ -439,9 +436,17 @@ def get_worldfile_url_from_dir(directory_url):
         raise Exception("Could not find . in path")
     return worldfile_path
 
-
-def pre_process_checks():
+def pre_launch_checks():
     pass
+
+def pre_process_checks(layer, data_provider):
+    if layer.layer().type() is QgsMapLayer.VectorLayer:
+        return "Provided Layer is a vector layer. Please select a raster layer."
+    if not data_provider.isValid():
+        return "Provided Layer is not valid."
+    if not data_provider.name() == "wms" and not data_provider.name() == "gdal":  # TODO are there more cases?
+        return "Please select a valid raster layer."
+    return None
 
 
 def error_message(self, message):
