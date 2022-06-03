@@ -67,10 +67,8 @@ from PIL import Image  # for reading dimensions of image
 MESSAGE_CATEGORY = 'Raster Cutter'
 
 
-# TODO logo
 # TODO help button
 # TODO imports?
-# TODO maybe allow user to set resolution and aspect ratio
 # TODO add QgsSubTask for splitting tasks (report progress?)
 
 class RasterCutter:
@@ -285,7 +283,8 @@ class RasterCutter:
                                                 options_string=options_string,
                                                 extent_win_string=get_extent_win(self),
                                                 generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
-                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(), )
+                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),
+                                                target_res={"x": self.dlg.x_res_box.value(), "y": self.dlg.x_res_box.value()})
             QgsApplication.taskManager().addTask(process_task)
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
@@ -314,14 +313,14 @@ def get_extent_win(self):
 
 
 def process(task, src, directory_url, dest_srs, format_string, extent_win_string, options_string, generate_lexocad: bool,
-            generate_worldfile: bool):
+            generate_worldfile: bool, target_res: {"x": float, "y": float}):
     QgsMessageLog.logMessage('Cropping raster...', MESSAGE_CATEGORY, Qgis.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
     if task.isCanceled():
         stopped(task)
         return None
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
-    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string)
+    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_res)
     if task.isCanceled():
         stopped(task)
         return None
@@ -365,13 +364,14 @@ def open_dataset(data_provider):
     return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
 
 def crop(out, src, extent_win_string, extent_srs):
-    return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -r bilinear, -outsize 4000 0" % (extent_win_string, extent_srs))
+    return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (extent_win_string, extent_srs))
 
-def warp(out, src, dst_srs, extent_win_string):
+def warp(out, src, dst_srs, extent_win_string, target_res):
     options_string = "-t_srs %s, " % dst_srs
     # options_string += "-te " + extent_win_string + ", "
     # options_string += "-te_srs EPSG:4326, "  # TODO Remove
     # options_string += "-ts 3000 0, "
+    options_string += "-tr %s %s" % (target_res['x'], target_res['y'])
     return gdal.Warp(out, src, options=options_string)
 
 
@@ -440,7 +440,7 @@ def pre_launch_checks():
     pass
 
 def pre_process_checks(layer, data_provider):
-    if layer.layer().type() is QgsMapLayer.VectorLayer:
+    if layer.type() is QgsMapLayer.VectorLayer:
         return "Provided Layer is a vector layer. Please select a raster layer."
     if not data_provider.isValid():
         return "Provided Layer is not valid."
