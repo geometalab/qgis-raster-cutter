@@ -23,7 +23,7 @@
 """
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
-from PyQt5.QtWidgets import QMenu, QFileDialog
+from PyQt5.QtWidgets import QMenu, QFileDialog, QWhatsThis
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
@@ -237,7 +237,7 @@ class RasterCutter:
             self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
                                                  currentCrs=QgsProject.instance().crs())
         on_lexocad_toggeled(self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
-        globals()['self'] = self
+        globals()['self'] = self  # for throwing an error without having to pass it around
         add_tooltips(self)
 
         # show the dialog
@@ -297,7 +297,7 @@ def widget_init(self):
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
     self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
-    self.dlg.button_box.helpRequested.connect(lambda: print("ay"))
+    self.dlg.button_box.helpRequested.connect(lambda: help_mode())
 
 
 def on_lexocad_toggeled(self):
@@ -460,4 +460,7 @@ def error_message(message):
     self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
 
 
-
+def help_mode():
+    QWhatsThis.enterWhatsThisMode()
+    self = globals()['self']
+    print(self.dlg.extent_box.currentCrs())
