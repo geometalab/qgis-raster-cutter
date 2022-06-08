@@ -57,6 +57,7 @@ from qgis.core import (QgsProcessingParameterDefinition,
 from .resources import *
 # Import the code for the dialog
 from .raster_cutter_dialog import RasterCutterDialog
+from .tooltips import *
 import os.path
 from osgeo import gdal, ogr
 
@@ -237,7 +238,7 @@ class RasterCutter:
                                                  currentCrs=QgsProject.instance().crs())
         on_lexocad_toggeled(self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
         globals()['self'] = self
-
+        add_tooltips(self)
 
         # show the dialog
         self.dlg.show()
@@ -296,6 +297,7 @@ def widget_init(self):
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
     self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
+    self.dlg.button_box.helpRequested.connect(lambda: print("ay"))
 
 
 def on_lexocad_toggeled(self):
