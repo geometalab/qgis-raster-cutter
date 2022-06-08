@@ -65,9 +65,6 @@
       </item>
       <item>
        <widget class="QgsMapLayerComboBox" name="layer_combobox">
-        <property name="filters">
-         <set>QgsMapLayerProxyModel::RasterLayer</set>
-        </property>
         <property name="showCrs">
          <bool>true</bool>
         </property>

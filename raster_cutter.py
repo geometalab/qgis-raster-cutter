@@ -295,7 +295,7 @@ def widget_init(self):
     # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
-    # self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
+    self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
 
 
 def on_lexocad_toggeled(self):
