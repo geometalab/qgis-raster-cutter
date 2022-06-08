@@ -7,17 +7,20 @@
     <x>0</x>
     <y>0</y>
     <width>612</width>
-    <height>431</height>
+    <height>443</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Raster Cutter</string>
+   <string>Save Raster Image as...</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>false</bool>
   </property>
   <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>390</y>
+     <y>400</y>
      <width>581</width>
      <height>41</height>
     </rect>
@@ -61,12 +64,26 @@
        </widget>
       </item>
       <item>
-       <widget class="QgsMapLayerComboBox" name="layer_combobox"/>
+       <widget class="QgsMapLayerComboBox" name="layer_combobox">
+        <property name="filters">
+         <set>QgsMapLayerProxyModel::RasterLayer</set>
+        </property>
+        <property name="showCrs">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>
     <item>
      <widget class="QgsExtentGroupBox" name="extent_box"/>
+    </item>
+    <item>
+     <widget class="Line" name="line">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_6">
@@ -103,15 +120,24 @@
     </item>
     <item>
      <widget class="QCheckBox" name="worldfile_checkbox">
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, a &lt;span style=&quot; font-weight:600;&quot;&gt;.wld&lt;/span&gt; sidecarfile will be created, which allows the image to be georeferenced in many applications.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
       <property name="text">
-       <string>Generate World File </string>
+       <string>Create World File </string>
+      </property>
+      <property name="tristate">
+       <bool>false</bool>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QCheckBox" name="lexocad_checkbox">
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When checked, a &lt;span style=&quot; font-weight:600;&quot;&gt;.jpgl&lt;/span&gt; or &lt;span style=&quot; font-weight:600;&quot;&gt;.pngl&lt;/span&gt; sidecarfile will be created, which allows the image to be imported into Lexocad. Output CRS will be set to &lt;span style=&quot; font-weight:600;&quot;&gt;EPGS:2056&lt;/span&gt; as required.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
       <property name="text">
-       <string>Generate Lexocad Support Files </string>
+       <string>Create Lexocad Support Files</string>
       </property>
      </widget>
     </item>
@@ -182,25 +208,6 @@
        </widget>
       </item>
       <item>
-       <widget class="QSpinBox" name="x_res_box">
-        <property name="maximumSize">
-         <size>
-          <width>50</width>
-          <height>16777215</height>
-         </size>
-        </property>
-        <property name="prefix">
-         <string/>
-        </property>
-        <property name="minimum">
-         <number>1</number>
-        </property>
-        <property name="maximum">
-         <number>99999</number>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QLabel" name="label_3">
         <property name="maximumSize">
          <size>
@@ -211,21 +218,24 @@
         <property name="text">
          <string>x</string>
         </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
        </widget>
       </item>
       <item>
-       <widget class="QSpinBox" name="y_res_box">
+       <widget class="QDoubleSpinBox" name="x_res_box">
         <property name="maximumSize">
          <size>
-          <width>50</width>
-          <height>16777215</height>
+          <width>70</width>
+          <height>25</height>
          </size>
         </property>
         <property name="minimum">
-         <number>1</number>
+         <double>0.010000000000000</double>
         </property>
-        <property name="maximum">
-         <number>9999</number>
+        <property name="value">
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>
@@ -239,6 +249,25 @@
         </property>
         <property name="text">
          <string>y</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="y_res_box">
+        <property name="maximumSize">
+         <size>
+          <width>70</width>
+          <height>25</height>
+         </size>
+        </property>
+        <property name="minimum">
+         <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>

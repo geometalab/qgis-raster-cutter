@@ -27,7 +27,6 @@ from PyQt5.QtWidgets import QMenu, QFileDialog
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
-import qgis.core
 from qgis.core import (QgsProcessingParameterDefinition,
                        QgsProcessingParameters,
                        QgsProject,
@@ -52,8 +51,7 @@ from qgis.core import (QgsProcessingParameterDefinition,
                        QgsApplication,
                        QgsProcessingContext,
                        QgsProcessingFeedback,
-                       QgsProject,
-                       QgsMapLayerProxyModel)
+                       QgsProject)
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -227,6 +225,7 @@ class RasterCutter:
             self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
             widget_init(self)
 
+
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
         if layers:  # if there are layers in the project, we can set extent box extents and crs's
             # extentbox init
@@ -236,6 +235,9 @@ class RasterCutter:
             self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
             self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
                                                  currentCrs=QgsProject.instance().crs())
+        on_lexocad_toggeled(self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
+        globals()['self'] = self
+
 
         # show the dialog
         self.dlg.show()
@@ -248,13 +250,13 @@ class RasterCutter:
             data_provider = selected_layer.dataProvider()
             error = pre_process_checks(selected_layer, data_provider)
             if error is not None:
-                error_message(self, error)
+                error_message(error)
                 return
             src, error = open_dataset(data_provider)
             x_res, y_res=src.RasterXSize, src.RasterYSize
             print(str(x_res) + " " + str(y_res))
             if error is not None:
-                error_message(self, error)
+                error_message(error)
                 return
 
             options_string = ""
@@ -293,6 +295,7 @@ def widget_init(self):
     # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
+    # self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
 
 
 def on_lexocad_toggeled(self):
@@ -367,11 +370,13 @@ def crop(out, src, extent_win_string, extent_srs):
     return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (extent_win_string, extent_srs))
 
 def warp(out, src, dst_srs, extent_win_string, target_res):
+    QgsMessageLog.logMessage(dst_srs, MESSAGE_CATEGORY, Qgis.Info)
     options_string = "-t_srs %s, " % dst_srs
     # options_string += "-te " + extent_win_string + ", "
     # options_string += "-te_srs EPSG:4326, "  # TODO Remove
     # options_string += "-ts 3000 0, "
     options_string += "-tr %s %s" % (target_res['x'], target_res['y'])
+    QgsMessageLog.logMessage(options_string, MESSAGE_CATEGORY, Qgis.Info)
     return gdal.Warp(out, src, options=options_string)
 
 
@@ -386,12 +391,11 @@ def completed(exception, result=None):
         # TODO This never gets called?
         QgsMessageLog.logMessage('Done.'.format(result), MESSAGE_CATEGORY, Qgis.Info)
     else:
-        QgsMessageLog.logMessage("Exception: {}".format(exception), MESSAGE_CATEGORY, Qgis.Critical)
+        error_message("Exception: {}".format(exception))
 
 
 def stopped(task):
-    QgsMessageLog.logMessage(
-        'Task "{name}" was canceled'.format(name=task.description()), MESSAGE_CATEGORY, Qgis.Info)
+    error_message('Task "{name}" was canceled'.format(name=task.description()))
 
 
 def generate_lexocad_files(directoryUrl):
@@ -402,7 +406,7 @@ def generate_lexocad_files(directoryUrl):
         src_width, src_height = img.size
 
     width = abs(src_width * float(lines[0]))
-    height = abs(src_width * float(lines[3]))
+    height = abs(src_height * float(lines[3]))
     xMinimum = float(lines[4])
     yMinimum = float(lines[5]) - height
     with open(directoryUrl + "l", 'w') as f:
@@ -448,7 +452,10 @@ def pre_process_checks(layer, data_provider):
         return "Please select a valid raster layer."
     return None
 
-
-def error_message(self, message):
+def error_message(message):
+    self = globals()['self']
     QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
     self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
+
+
+
