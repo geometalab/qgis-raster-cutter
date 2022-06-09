@@ -2,6 +2,7 @@
 ***
 
 ![](docs/screenshot.png)
+
 Raster Cutter is a QGIS Plugin developed in Python and QT. It allows the user to select a raster layer from his project, set an extent and export the raster data within this extent to a `.jpg` or `.png` image file. 
 
 Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if desired. The plugin also supports re-projection into other Coordinate Reference Systems.
