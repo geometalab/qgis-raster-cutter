@@ -223,7 +223,7 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
-            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
+            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~/Documents/raster.jpg"))  # set path to user home
             widget_init(self)
 
 
