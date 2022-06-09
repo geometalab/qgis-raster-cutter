@@ -7,6 +7,7 @@ path %PATH%;%OSGEO4W_ROOT%\apps\qgis\bin
 path %PATH%;%OSGEO4W_ROOT%\apps\grass\grass-7.4.0\lib
 path %PATH%;C:\OSGeo4W3\apps\Qt5\bin
 path %PATH%;C:\OSGeo4W3\apps\Python36\Scripts
+path %PATH%;C:\Program Files\7-Zip
 
 set PYTHONPATH=%PYTHONPATH%%OSGEO4W_ROOT%\apps\qgis\python
 
