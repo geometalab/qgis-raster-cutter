@@ -23,30 +23,52 @@
 """
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
-from PyQt5.QtWidgets import QMenu, QFileDialog
+from PyQt5.QtWidgets import QMenu, QFileDialog, QWhatsThis
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
-import qgis.core
 from qgis.core import (QgsProcessingParameterDefinition,
                        QgsProcessingParameters,
                        QgsProject,
                        QgsMapSettings,
+                       QgsMapLayer,
                        QgsRectangle,
                        QgsMapRendererCustomPainterJob,
-QgsCoordinateReferenceSystem,
-QgsCoordinateTransform,
+                       QgsCoordinateReferenceSystem,
+                       QgsCoordinateTransform,
                        QgsReferencedRectangle,
-                       QgsMapLayerProxyModel)
+                       QgsProcessingContext,
+                       QgsTaskManager,
+                       QgsTask,
+                       QgsProcessingAlgRunnerTask,
+                       Qgis,
+                       QgsProcessingFeedback,
+                       QgsApplication,
+                       QgsMessageLog,
+                       QgsTaskManager,
+                       QgsMessageLog,
+                       QgsProcessingAlgRunnerTask,
+                       QgsApplication,
+                       QgsProcessingContext,
+                       QgsProcessingFeedback,
+                       QgsProject)
 
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
 from .raster_cutter_dialog import RasterCutterDialog
+from .tooltips import *
 import os.path
+from osgeo import gdal, ogr
 
-# TODO logo
-# TODO remove test button
+from PIL import Image  # for reading dimensions of image
+
+MESSAGE_CATEGORY = 'Raster Cutter'
+
+
+# TODO help button
+# TODO imports?
+# TODO add QgsSubTask for splitting tasks (report progress?)
 
 class RasterCutter:
     """QGIS Plugin Implementation."""
@@ -201,11 +223,22 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
+            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
+            widget_init(self)
 
-        layers = [tree_layer.layer() for tree_layer in QgsProject.instance().layerTreeRoot().findLayers()]
-        load_layer_items(self, layers)
 
-        set_bindings(self)
+        layers = [layer for layer in QgsProject.instance().mapLayers().values()]
+        if layers:  # if there are layers in the project, we can set extent box extents and crs's
+            # extentbox init
+            self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
+                                                  originalCrs=self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
+                                                 currentCrs=QgsProject.instance().crs())
+        on_lexocad_toggeled(self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
+        globals()['self'] = self  # for throwing an error without having to pass it around
+        add_tooltips(self)
 
         # show the dialog
         self.dlg.show()
@@ -213,132 +246,221 @@ class RasterCutter:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
-            selected_layer = layers[self.dlg.layer_combobox.currentIndex()]
-            extent = get_extent(self, selected_layer)
-            extent = convert_extent_crs(extent, selected_layer)
-            extent = clip_extent_to_square(extent)
-            extent = round_extent(extent)
-            directory_url = self.dlg.file_dest_status.text()
-            if self.dlg.lexocad_checkbox.isChecked():
-                generate_lexocad_files(directory_url, extent)
-            save_image(selected_layer, extent, directory_url=directory_url)
+            directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
+            selected_layer = self.dlg.layer_combobox.currentLayer()
+            data_provider = selected_layer.dataProvider()
+            error = pre_process_checks(selected_layer, data_provider)
+            if error is not None:
+                error_message(error)
+                return
+            src, error = open_dataset(data_provider)
+            x_res, y_res=src.RasterXSize, src.RasterYSize
+            print(str(x_res) + " " + str(y_res))
+            if error is not None:
+                error_message(error)
+                return
+
+            options_string = ""
+            format_string = None
+
+            # Set format string and format specific settings
+            if directory_url.endswith(".jpg"):
+                format_string = "JPEG"
+                # enables progressive jpg creation (https://gdal.org/drivers/raster/jpeg.html#creation-options)
+                # options_string += "-co PROGRESSIVE=ON, "
+            elif directory_url.endswith(".png"):
+                format_string = "PNG"
+
+            # Add worldfile option if either one of the checkboxes are checked
+            # We still need the worldfile as long as the lexocad file is wandet by the user
+            # because values for the lexocad file are calculated from the worldfile
+            if self.dlg.worldfile_checkbox.isChecked() or self.dlg.lexocad_checkbox.isChecked():
+                options_string += "-co WORLDFILE=YES, "
+
+            process_task = QgsTask.fromFunction("Creating Files", process,
+                                                on_finished=completed,
+                                                src=src,
+                                                directory_url=directory_url,
+                                                dest_srs=get_target_projection(self).authid(),
+                                                format_string=format_string,
+                                                options_string=options_string,
+                                                extent_win_string=get_extent_win(self),
+                                                generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
+                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),
+                                                target_res={"x": self.dlg.x_res_box.value(), "y": self.dlg.x_res_box.value()})
+            QgsApplication.taskManager().addTask(process_task)
+            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
 
-def set_bindings(self):
-    self.dlg.file_dest_btn.clicked.connect(lambda: open_file_browser(self))
-    self.dlg.test_btn.clicked.connect(lambda: generate_lexocad_files("C:/Users/zahne/Desktop/testfile.jpg"))
+def widget_init(self):
+    # input layer init
+    self.dlg.layer_combobox.setShowCrs(True)
+    self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
+    self.dlg.layer_combobox.setLayer(self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
+    self.dlg.button_box.helpRequested.connect(lambda: help_mode())
 
 
-def load_layer_items(self, layers):
-    # Load the layers and add them to the combobox
-    # TODO make it so that the selected layer in qgis is selected in dropdown
-    layer_list = []
-    for layer in layers:
-        layer_list.append(layer.name())
-        self.dlg.layer_combobox.clear()
-        self.dlg.layer_combobox.addItems(layer_list)
-
-
-def get_extent(self, selected_layer):
-    # todo test with layer extent
-    if self.dlg.canvas_extent_radiobtn.isChecked():
-        return self.iface.mapCanvas().extent()
-    elif self.dlg.layer_extent_radiobtn.isChecked():
-        return selected_layer.extent()
+def on_lexocad_toggeled(self):
+    if self.dlg.lexocad_checkbox.isChecked():
+        self.dlg.proj_selection.setEnabled(False)
+        self.dlg.proj_selection.setCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
     else:
-        throw_error("Could not get checked extent box.")
-
-def convert_extent_crs(extent, selected_layer):
-    src_crs = QgsCoordinateReferenceSystem(QgsProject.instance().crs())
-    dst_crs = QgsCoordinateReferenceSystem(selected_layer.crs())
-    coords_transform = QgsCoordinateTransform(src_crs, dst_crs, QgsProject.instance())
-    return coords_transform.transform(extent)
-
-def clip_extent_to_square(extent):
-    width = extent.xMaximum() - extent.xMinimum()
-    height = extent.yMaximum() - extent.yMinimum()
-    # get the value of either extent width or height, whichever is longest
-    longer_side = width
-    if height > longer_side:
-        longer_side = height
-    center_x = extent.center().x()
-    center_y = extent.center().y()
-    # return a square extent, with a height and with of the longer side and a center of the supplied extent
-    return QgsRectangle(
-        center_x - (longer_side / 2),
-        center_y - (longer_side / 2),
-        center_x + (longer_side / 2),
-        center_y + (longer_side / 2)
-    )
+        self.dlg.proj_selection.setEnabled(True)
 
 
-def round_extent(extent):
-    return QgsRectangle(
-        round(extent.xMinimum()),
-        round(extent.yMinimum()),
-        round(extent.xMaximum()),
-        round(extent.yMaximum()),
-    )
+def get_target_projection(self):
+    return self.dlg.proj_selection.crs()
 
 
-def save_image(selected_layer, extent, directory_url):
-    img = QImage(QSize(800, 800), QImage.Format_ARGB32_Premultiplied)
-    # set background color
-    color = QColor(255, 255, 255, 255)
-    img.fill(color.rgba())
-    # create painter with antialiasing
-    p = QPainter()
-    p.begin(img)
-    p.setRenderHint(QPainter.Antialiasing)
-    # create map settings
-    ms = QgsMapSettings()
-    ms.setBackgroundColor(color)
-    # set layers to render
-    ms.setLayers([selected_layer])
-    rect = QgsRectangle(extent)
-    # rect.scale(1.1)
-    ms.setExtent(rect)
-    ms.setOutputSize(img.size())
-    # setup qgis map renderer
-    render = QgsMapRendererCustomPainterJob(ms, p)
-    render.start()
-    render.waitForFinished()
-    p.end()
-    img.save(directory_url)
+def get_extent_win(self):
+    e = self.dlg.extent_box.outputExtent()
+    return "%d %d %d %d" % (e.xMinimum(), e.yMaximum(), e.xMaximum(), e.yMinimum())
 
 
-def open_file_browser(self):
-    # TODO default file path for label should be defined
-    filename = QFileDialog.getSaveFileName(caption="Save File", filter="PNG (*.png);;JPG (*.jpg)")[0]
-    self.dlg.file_dest_status.setText(filename)
+def process(task, src, directory_url, dest_srs, format_string, extent_win_string, options_string, generate_lexocad: bool,
+            generate_worldfile: bool, target_res: {"x": float, "y": float}):
+    QgsMessageLog.logMessage('Cropping raster...', MESSAGE_CATEGORY, Qgis.Info)
+    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
+    if task.isCanceled():
+        stopped(task)
+        return None
+    QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
+    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_res)
+    if task.isCanceled():
+        stopped(task)
+        return None
+    QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.Info)
+    translated = translate(directory_url, warped, format_string, options_string)
+    if task.isCanceled():
+        stopped(task)
+        return None
+    src = None
+    warped = None
+    manage_files(generate_lexocad, generate_worldfile, directory_url)
+    return translated
 
 
-def generate_worldfile(directoryUrl):
-    print("unimplemented")
+def manage_files(generate_lexocad, generate_worldfile, dir_url):
+    if not generate_worldfile and not generate_lexocad:
+        return
+    QgsMessageLog.logMessage("Creating sidecar files", MESSAGE_CATEGORY, Qgis.Info)
+    if generate_lexocad:
+        generate_lexocad_files(dir_url)
+    if not generate_worldfile and generate_lexocad:
+        delete_world_file(dir_url)
 
 
-def generate_lexocad_files(directoryUrl, extent):
-    # TODO test with other crs's
-    print(extent.xMaximum())
-    print(extent.yMaximum())
-    print(extent.xMinimum())
-    print(extent.yMinimum())
-    width = extent.xMaximum() - extent.xMinimum()
-    height = extent.yMaximum() - extent.yMinimum()
+def open_dataset(data_provider):
+    if data_provider.name() == "wms":
+        args = data_provider.dataSourceUri().split("&")
+        for arg in args:
+            if arg.find("url=") is not -1:
+                url = arg
+                url = url.replace("url=", "")
+        if url is None:
+            raise Exception("Could not find url parameter in data source")
+        gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
+        print(gdal_string)
+    elif data_provider.name() == "gdal":
+        gdal_string = data_provider.dataSourceUri()
+    else:
+        return None, "Could not open given dataset: %s" % data_provider.name()
+
+    return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
+
+def crop(out, src, extent_win_string, extent_srs):
+    return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (extent_win_string, extent_srs))
+
+def warp(out, src, dst_srs, extent_win_string, target_res):
+    QgsMessageLog.logMessage(dst_srs, MESSAGE_CATEGORY, Qgis.Info)
+    options_string = "-t_srs %s, " % dst_srs
+    # options_string += "-te " + extent_win_string + ", "
+    # options_string += "-te_srs EPSG:4326, "  # TODO Remove
+    # options_string += "-ts 3000 0, "
+    options_string += "-tr %s %s" % (target_res['x'], target_res['y'])
+    QgsMessageLog.logMessage(options_string, MESSAGE_CATEGORY, Qgis.Info)
+    return gdal.Warp(out, src, options=options_string)
+
+
+def translate(directory_url, src, format_string, options_string):
+    return gdal.Translate(directory_url, src, format=format_string,
+                          options=options_string)
+
+
+def completed(exception, result=None):
+    result = None  # Properly close dataset
+    if exception is None:
+        # TODO This never gets called?
+        QgsMessageLog.logMessage('Done.'.format(result), MESSAGE_CATEGORY, Qgis.Info)
+    else:
+        error_message("Exception: {}".format(exception))
+
+
+def stopped(task):
+    error_message('Task "{name}" was canceled'.format(name=task.description()))
+
+
+def generate_lexocad_files(directoryUrl):
+    worldfile_path = get_worldfile_url_from_dir(directoryUrl)
+    with open(worldfile_path, "r") as worldfile:
+        lines = worldfile.readlines()
+    with Image.open(directoryUrl) as img:
+        src_width, src_height = img.size
+
+    width = abs(src_width * float(lines[0]))
+    height = abs(src_height * float(lines[3]))
+    xMinimum = float(lines[4])
+    yMinimum = float(lines[5]) - height
     with open(directoryUrl + "l", 'w') as f:
         f.write(
-            str(int(extent.xMinimum())) + "\n" +
-            str(int(extent.yMinimum())) + "\n" +
-            str(int(width)) + "\n" +
-            str(int(height)) + "\n" +
+            str(xMinimum) + "\n" +
+            str(yMinimum) + "\n" +
+            str(float(width)) + "\n" +
+            str(float(height)) + "\n" +
             "\n" +
             "# cadwork swisstopo" + "\n" +
-            "# " + str(int(extent.xMinimum())) + " " + str(int(extent.yMinimum())) + "\n" +
-            "# " + str(int(width)) + " " + str(int(height)) + "\n" +
+            "# " + str(xMinimum) + " " + str(yMinimum) + "\n" +
+            "# " + str(width) + " " + str(height) + "\n" +
             "# projection: EPSG:2056 - CH1903+ / LV95"
         )
 
 
-def throw_error(message):
-    # TODO improve error handling
-    print(message)
+def delete_world_file(directory_url):
+    worldfile_path = get_worldfile_url_from_dir(directory_url)
+    if os.path.exists(worldfile_path):
+        os.remove(worldfile_path)
+    else:
+        raise Exception("The file does not exist")
+
+
+def get_worldfile_url_from_dir(directory_url):
+    index = directory_url.find(".")
+    if index != -1:
+        worldfile_path = directory_url[:index]
+        worldfile_path += ".wld"
+    else:
+        raise Exception("Could not find . in path")
+    return worldfile_path
+
+def pre_launch_checks():
+    pass
+
+def pre_process_checks(layer, data_provider):
+    if layer.type() is QgsMapLayer.VectorLayer:
+        return "Provided Layer is a vector layer. Please select a raster layer."
+    if not data_provider.isValid():
+        return "Provided Layer is not valid."
+    if not data_provider.name() == "wms" and not data_provider.name() == "gdal":  # TODO are there more cases?
+        return "Please select a valid raster layer."
+    return None
+
+def error_message(message):
+    self = globals()['self']
+    QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
+    self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
+
+
+def help_mode():
+    QWhatsThis.enterWhatsThisMode()
+    self = globals()['self']
+    print(self.dlg.extent_box.currentCrs())
