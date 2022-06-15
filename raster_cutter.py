@@ -21,36 +21,19 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
-from PyQt5.QtWidgets import QMenu, QFileDialog, QWhatsThis
+from PyQt5.QtWidgets import QWhatsThis
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
-from qgis.core import (QgsProcessingParameterDefinition,
-                       QgsProcessingParameters,
-                       QgsProject,
-                       QgsMapSettings,
+from qgis.core import (QgsProject,
                        QgsMapLayer,
-                       QgsRectangle,
-                       QgsMapRendererCustomPainterJob,
                        QgsCoordinateReferenceSystem,
-                       QgsCoordinateTransform,
-                       QgsReferencedRectangle,
-                       QgsProcessingContext,
-                       QgsTaskManager,
                        QgsTask,
-                       QgsProcessingAlgRunnerTask,
                        Qgis,
-                       QgsProcessingFeedback,
                        QgsApplication,
                        QgsMessageLog,
-                       QgsTaskManager,
                        QgsMessageLog,
-                       QgsProcessingAlgRunnerTask,
                        QgsApplication,
-                       QgsProcessingContext,
-                       QgsProcessingFeedback,
                        QgsProject)
 
 # Initialize Qt resources from file resources.py
@@ -59,11 +42,14 @@ from .resources import *
 from .raster_cutter_dialog import RasterCutterDialog
 from .tooltips import *
 import os.path
-from osgeo import gdal, ogr
+from osgeo import gdal
 
 from PIL import Image  # for reading dimensions of image
 
 MESSAGE_CATEGORY = 'Raster Cutter'
+
+
+gdal.UseExceptions()
 
 
 # TODO help button
@@ -225,7 +211,6 @@ class RasterCutter:
             self.dlg = RasterCutterDialog()
             self.dlg.file_dest_field.setFilePath(os.path.expanduser("~"))  # set path to user home
             widget_init(self)
-
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
         if layers:  # if there are layers in the project, we can set extent box extents and crs's
