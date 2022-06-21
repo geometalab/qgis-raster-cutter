@@ -5,12 +5,12 @@
 [general]
 name=Raster Cutter
 qgisMinimumVersion=3.0
-description=This Plugin allows the export of JPG files with a JPGL Sidecar file.
+description=Export a raster layer as an image. Select extent, reproject, create Worldfile or Lexocad sidecar files.
 version=0.1
 author=IFS Institute for Software
 email=feedback.ifs@ost.ch
 
-about=Allows to export a JPG and corresponding JPGL File for use in LexoCAD.
+about=This plugin allows the user to select a raster layer from his project, set an extent and export the raster data within this extent to a .jpg or .png image file. Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if desired. The plugin also supports re-projection into other Coordinate Reference Systems.
 
 tracker=https://github.com/geometalab/qgis-raster-cutter/issues
 repository=https://github.com/geometalab/qgis-raster-cutter
@@ -23,7 +23,7 @@ hasProcessingProvider=no
 # changelog=
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python, raster, crs, gdal
 
 homepage=https://github.com/geometalab/qgis-raster-cutter
 category=Plugins
@@ -39,8 +39,7 @@ deprecated=False
 # Check the documentation for more information.
 # plugin_dependencies=
 
-Category of the plugin: Raster, Vector, Database or Web
-# category=
+# Category of the plugin: Raster
 
 # If the plugin can run on QGIS Server.
 server=False
