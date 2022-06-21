@@ -226,6 +226,7 @@ class RasterCutter:
             self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
         globals()['self'] = self  # for throwing an error without having to pass it around
         add_tooltips(self)
+        select_current_layer(self)
 
         # show the dialog
         self.dlg.show()
@@ -283,8 +284,6 @@ def widget_init(self):
     # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
-    self.dlg.layer_combobox.setLayer(
-        self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
     self.dlg.res_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
     on_resolution_checkbox_toggled(self)
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
@@ -306,6 +305,11 @@ def on_lexocad_toggeled(self):
     else:
         self.dlg.proj_selection.setEnabled(True)
 
+def select_current_layer(self):
+    # sets the layer dropdown to the selected layer in the QGIS layer manager, if one is selected
+    if self.iface.layerTreeView().selectedLayers():
+        self.dlg.layer_combobox.setLayer(
+            self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
 
 def get_target_projection(self):
     return self.dlg.proj_selection.crs()
