@@ -187,7 +187,7 @@ class RasterCutter:
         icon_path = ':/plugins/raster_cutter/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Export JPG + JPGL'),
+            text=self.tr(u'Save raster image'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
