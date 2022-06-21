@@ -9,10 +9,14 @@ def add_tooltips(self):
 
 
 def section_tips(self):
-    input_section_tooltip = "<p>Select the raster data to cut and set the extent of the output raster with the two widgets below. To get access to various layers, it is recommended to install the QuickMapServices QGIS plugin.</p>"
-    input_section_whatsthis = input_section_tooltip
+    input_section_tooltip = "<p>A raster layer - i.e. an internet map image service (WMS, WMTS, XYZ/TMS) - or a local file (GeoTIFF format). Make sure you have a matching CRS. A list of map services is available e.g. in the \"Quick Map Services\" plugin.</p>"
+    input_section_whatsthis = input_section_tooltip + "<p>Select the raster data to cut and set the extent of the output raster with the two widgets below.</p>"
+    output_section_tooltip = "<p>A raster file in an image format (PNG, JPG, GeoTIFF) with a certain smaller extent, possibly with a sidecar file (World File etc.) and eventually reprojected into a CRS and with certain resolution.</p>"
+    output_section_whatsthis = output_section_tooltip
     self.dlg.input_section_label.setToolTip(input_section_tooltip)
     self.dlg.input_section_label.setToolTip(input_section_whatsthis)
+    self.dlg.output_section_label.setToolTip(output_section_tooltip)
+    self.dlg.output_section_label.setToolTip(output_section_whatsthis)
 
 def input_layer_tips(self):
     input_layer_tooltip = "<p>Select the layer which should be saved as a image. Needs to be a raster layer.</p>"
