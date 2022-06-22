@@ -26,7 +26,7 @@ hasProcessingProvider=no
 tags=python, raster, crs, gdal
 
 homepage=https://github.com/geometalab/qgis-raster-cutter
-category=Plugins
+category=Raster
 icon=icon.png
 # experimental flag
 experimental=False
@@ -39,7 +39,6 @@ deprecated=False
 # Check the documentation for more information.
 # plugin_dependencies=
 
-# Category of the plugin: Raster
 
 # If the plugin can run on QGIS Server.
 server=False

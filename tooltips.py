@@ -42,14 +42,14 @@ def file_dest_tips(self):
 
 
 def checkbox_tips(self):
+    # worldfile_checkbox_tooltip = '<p>When checked, a <span style=" font-weight:600;">.wld</span> sidecarfile will be created, which allows the image to be georeferenced in many applications.</p>'
+    # worldfile_checkbox_whatsthis = worldfile_checkbox_tooltip
     lexocad_checkbox_tooltip = '<p>When checked, a <span style=" font-weight:600;">.jpgl</span> or <span style=" font-weight:600;">.pngl</span> sidecarfile will be created, which allows the image to be imported into Lexocad. Output CRS will be set to <span style=" font-weight:600;">EPGS:2056</span> as required.</p>'
-    worldfile_checkbox_tooltip = '<p>When checked, a <span style=" font-weight:600;">.wld</span> sidecarfile will be created, which allows the image to be georeferenced in many applications.</p>'
     lexocad_checkbox_whatsthis = lexocad_checkbox_tooltip
-    worldfile_checkbox_whatsthis = worldfile_checkbox_tooltip
-    self.dlg.worldfile_checkbox.setToolTip(worldfile_checkbox_tooltip)
-    self.dlg.worldfile_checkbox.setWhatsThis(worldfile_checkbox_whatsthis)
-    self.dlg.worldfile_checkbox.setToolTip(lexocad_checkbox_tooltip)
-    self.dlg.worldfile_checkbox.setWhatsThis(lexocad_checkbox_whatsthis)
+    # self.dlg.worldfile_checkbox.setToolTip(worldfile_checkbox_tooltip)
+    # self.dlg.worldfile_checkbox.setWhatsThis(worldfile_checkbox_whatsthis)
+    self.dlg.lexocad_checkbox.setToolTip(lexocad_checkbox_tooltip)
+    self.dlg.lexocad_checkbox.setWhatsThis(lexocad_checkbox_whatsthis)
 
 
 def crs_tips(self):

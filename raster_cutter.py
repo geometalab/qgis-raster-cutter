@@ -21,17 +21,16 @@
  *                                                                         *
  ***************************************************************************/
 """
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QCursor, QImage, QColor, QPainter
-from PyQt5.QtWidgets import QMenu, QFileDialog, QWhatsThis
+
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QWhatsThis
 from qgis.core import (QgsProject,
                        QgsMapLayer,
                        QgsCoordinateReferenceSystem,
                        QgsTask,
                        Qgis,
+                       QgsRasterLayer,
                        QgsApplication,
                        QgsMessageLog,
                        QgsMessageLog,
@@ -210,7 +209,7 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
-            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~\cropped.png"))  # set path to user home
+            self.dlg.file_dest_field.setFilePath(default_filepath(self))  # set path to user home
             widget_init(self)
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
@@ -259,22 +258,21 @@ class RasterCutter:
             elif directory_url.endswith(".png"):
                 format_string = "PNG"
 
-            # Add worldfile option if either one of the checkboxes are checked
-            # We still need the worldfile as long as the lexocad file is wandet by the user
-            # because values for the lexocad file are calculated from the worldfile
-            if self.dlg.worldfile_checkbox.isChecked() or self.dlg.lexocad_checkbox.isChecked():
-                options_string += "-co WORLDFILE=YES, "
+            # Worldfile is now always generated, as wished by stefan
+            options_string += "-co WORLDFILE=YES, "
 
             process_task = QgsTask.fromFunction("Creating Files", process,
                                                 on_finished=completed,
                                                 src=src,
+                                                iface=self.iface,
                                                 directory_url=directory_url,
                                                 dest_srs=get_target_projection(self).authid(),
                                                 format_string=format_string,
                                                 options_string=options_string,
                                                 extent_win_string=get_extent_win(self),
                                                 generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
-                                                generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),
+                                                generate_worldfile=True,
+                                                add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
                                                 target_resolution=get_target_resolution(self))
             QgsApplication.taskManager().addTask(process_task)
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
@@ -305,11 +303,13 @@ def on_lexocad_toggled(self):
     else:
         self.dlg.proj_selection.setEnabled(True)
 
+
 def select_current_layer(self):
     # sets the layer dropdown to the selected layer in the QGIS layer manager, if one is selected
     if self.iface.layerTreeView().selectedLayers():
         self.dlg.layer_combobox.setLayer(
             self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
+
 
 def get_target_projection(self):
     return self.dlg.proj_selection.crs()
@@ -320,9 +320,9 @@ def get_extent_win(self):
     return f"{e.xMinimum()} {e.yMaximum()} {e.xMaximum()} {e.yMinimum()}"
 
 
-def process(task, src, directory_url, dest_srs, format_string, extent_win_string, options_string,
+def process(task, src, iface, directory_url, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
-            generate_worldfile: bool, target_resolution: {"x": float, "y": float}):
+            generate_worldfile: bool, add_to_map: bool, target_resolution: {"x": float, "y": float}):
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
     if task.isCanceled():
@@ -346,6 +346,10 @@ def process(task, src, directory_url, dest_srs, format_string, extent_win_string
     warped = None
     cropped = None
 
+    if add_to_map:
+        file = os.path.basename(directory_url)
+        file_name, file_ext = os.path.splitext(file)
+        add_file_to_map(iface, translated.GetDescription(), f"{file_name} cropped")
     manage_files(generate_lexocad, generate_worldfile, directory_url)
     QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
     return translated
@@ -388,7 +392,8 @@ def crop(out, src, extent_win_string, extent_srs):
 
 def warp(out, src, dst_srs, extent_win_string, target_resolution):
     options_string = "-t_srs %s, " % dst_srs
-    if target_resolution['x'] > 0 and target_resolution['y'] > 0:  # if no custom target res is defined, these should both be 0
+    if target_resolution['x'] > 0 and target_resolution[
+        'y'] > 0:  # if no custom target res is defined, these should both be 0
         options_string += "-tr %s %s" % (target_resolution['x'], target_resolution['y'])
     return gdal.Warp(out, src, options=options_string)
 
@@ -402,7 +407,7 @@ def completed(exception, result=None):
     result = None  # Properly close dataset
     if exception is None:
         # TODO This never gets called?
-        QgsMessageLog.logMessage('Done.'.format(result), MESSAGE_CATEGORY, Qgis.Info)
+        globals()['self'].iface.messageBar().pushMessage("Success", "Layer exported", level=Qgis.Info)
     else:
         error_message("Exception: {}".format(exception))
 
@@ -434,6 +439,16 @@ def generate_lexocad_files(directoryUrl):
                 )
 
 
+def add_file_to_map(iface, map_uri, baseName):
+    map_uri = map_uri.replace("\\", "/")
+    iface.addRasterLayer(map_uri, baseName)
+    # QgsProject.instance().reloadAllLayers()
+
+
+def default_filepath(self):
+    return os.path.expanduser("~\cropped.png")
+
+
 def delete_world_file(directory_url):
     worldfile_path = get_worldfile_url_from_dir(directory_url)
     if os.path.exists(worldfile_path):
@@ -448,10 +463,6 @@ def get_worldfile_url_from_dir(directory_url):
     else:
         raise Exception("Could not find generate worldfile file name")
     return worldfile_path
-
-
-def pre_launch_checks():
-    pass
 
 
 def get_target_resolution(self):

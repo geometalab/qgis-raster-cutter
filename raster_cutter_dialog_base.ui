@@ -6,12 +6,16 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>608</width>
-    <height>465</height>
+    <width>610</width>
+    <height>479</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Cut out Raster Layer to…</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>icon.png</normaloff>icon.png</iconset>
   </property>
   <property name="sizeGripEnabled">
    <bool>false</bool>
@@ -20,7 +24,7 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>420</y>
+     <y>440</y>
      <width>581</width>
      <height>41</height>
     </rect>
@@ -128,19 +132,6 @@
        </widget>
       </item>
      </layout>
-    </item>
-    <item>
-     <widget class="QCheckBox" name="worldfile_checkbox">
-      <property name="toolTip">
-       <string/>
-      </property>
-      <property name="text">
-       <string>Create World File (.pnw / .jpw)</string>
-      </property>
-      <property name="tristate">
-       <bool>false</bool>
-      </property>
-     </widget>
     </item>
     <item>
      <widget class="QCheckBox" name="lexocad_checkbox">
@@ -285,6 +276,34 @@
      </layout>
     </item>
    </layout>
+  </widget>
+  <widget class="QCheckBox" name="add_to_map_checkbox">
+   <property name="geometry">
+    <rect>
+     <x>130</x>
+     <y>450</y>
+     <width>170</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>170</width>
+     <height>0</height>
+    </size>
+   </property>
+   <property name="maximumSize">
+    <size>
+     <width>170</width>
+     <height>16777215</height>
+    </size>
+   </property>
+   <property name="text">
+    <string>Add saved file to map</string>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
   </widget>
  </widget>
  <customwidgets>
