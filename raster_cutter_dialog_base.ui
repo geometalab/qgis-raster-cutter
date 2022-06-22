@@ -162,6 +162,12 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>100</width>
+          <height>15</height>
+         </size>
+        </property>
         <property name="maximumSize">
          <size>
           <width>100</width>
@@ -206,14 +212,14 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
-       <widget class="QCheckBox" name="res_checkbox">
+       <widget class="QCheckBox" name="resolution_checkbox">
         <property name="text">
          <string>Set custom resolution</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="x_res_label">
+       <widget class="QLabel" name="x_resolution_label">
         <property name="maximumSize">
          <size>
           <width>20</width>
@@ -229,7 +235,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="x_res_box">
+       <widget class="QDoubleSpinBox" name="x_resolution_box">
         <property name="maximumSize">
          <size>
           <width>70</width>
@@ -245,7 +251,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="y_res_label">
+       <widget class="QLabel" name="y_resolution_label">
         <property name="maximumSize">
          <size>
           <width>20</width>
@@ -261,7 +267,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="y_res_box">
+       <widget class="QDoubleSpinBox" name="y_resolution_box">
         <property name="maximumSize">
          <size>
           <width>70</width>

@@ -187,7 +187,7 @@ class RasterCutter:
         icon_path = ':/plugins/raster_cutter/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Save raster image'),
+            text=self.tr(u'Cut out raster layer to....'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -210,7 +210,7 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
-            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~/Documents/raster.jpg"))  # set path to user home
+            self.dlg.file_dest_field.setFilePath(os.path.expanduser("~\cropped.png"))  # set path to user home
             widget_init(self)
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
@@ -222,7 +222,7 @@ class RasterCutter:
             self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
             self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
                                                  currentCrs=QgsProject.instance().crs())
-        on_lexocad_toggeled(
+        on_lexocad_toggled(
             self)  # check if checkbox is still checked and apply CRS if needed (this ensures CRS is always correct)
         globals()['self'] = self  # for throwing an error without having to pass it around
         add_tooltips(self)
@@ -242,8 +242,8 @@ class RasterCutter:
                 error_message(error)
                 return
             src, error = open_dataset(data_provider)
-            x_res, y_res = src.RasterXSize, src.RasterYSize
-            print(str(x_res) + " " + str(y_res))
+            x_resolution, y_resolution = src.RasterXSize, src.RasterYSize
+            print(str(x_resolution) + " " + str(y_resolution))
             if error is not None:
                 error_message(error)
                 return
@@ -275,7 +275,7 @@ class RasterCutter:
                                                 extent_win_string=get_extent_win(self),
                                                 generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
                                                 generate_worldfile=self.dlg.worldfile_checkbox.isChecked(),
-                                                target_res=get_target_res(self))
+                                                target_resolution=get_target_resolution(self))
             QgsApplication.taskManager().addTask(process_task)
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
@@ -283,22 +283,22 @@ class RasterCutter:
 def widget_init(self):
     # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
-    self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggeled(self))
-    self.dlg.res_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
+    self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggled(self))
+    self.dlg.resolution_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
     on_resolution_checkbox_toggled(self)
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
 
 
 def on_resolution_checkbox_toggled(self):
-    if self.dlg.res_checkbox.isChecked():
-        self.dlg.x_res_box.setEnabled(True)
-        self.dlg.y_res_box.setEnabled(True)
+    if self.dlg.resolution_checkbox.isChecked():
+        self.dlg.x_resolution_box.setEnabled(True)
+        self.dlg.y_resolution_box.setEnabled(True)
     else:
-        self.dlg.x_res_box.setEnabled(False)
-        self.dlg.y_res_box.setEnabled(False)
+        self.dlg.x_resolution_box.setEnabled(False)
+        self.dlg.y_resolution_box.setEnabled(False)
 
 
-def on_lexocad_toggeled(self):
+def on_lexocad_toggled(self):
     if self.dlg.lexocad_checkbox.isChecked():
         self.dlg.proj_selection.setEnabled(False)
         self.dlg.proj_selection.setCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
@@ -322,24 +322,30 @@ def get_extent_win(self):
 
 def process(task, src, directory_url, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
-            generate_worldfile: bool, target_res: {"x": float, "y": float}):
-    QgsMessageLog.logMessage('Cropping raster...', MESSAGE_CATEGORY, Qgis.Info)
+            generate_worldfile: bool, target_resolution: {"x": float, "y": float}):
+    QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
     if task.isCanceled():
         stopped(task)
         return None
+
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
-    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_res)
+    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_resolution)
     if task.isCanceled():
         stopped(task)
         return None
+
     QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.Info)
     translated = translate(directory_url, warped, format_string, options_string)
     if task.isCanceled():
         stopped(task)
         return None
+
+    # close all datasets properly
     src = None
     warped = None
+    cropped = None
+
     manage_files(generate_lexocad, generate_worldfile, directory_url)
     QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
     return translated
@@ -358,7 +364,7 @@ def manage_files(generate_lexocad, generate_worldfile, dir_url):
 def open_dataset(data_provider):
     QgsMessageLog.logMessage(data_provider.name(), MESSAGE_CATEGORY, Qgis.Info)
     QgsMessageLog.logMessage(data_provider.dataSourceUri(), MESSAGE_CATEGORY, Qgis.Info)
-    if data_provider.name() == "wms" or "xyz":
+    if data_provider.name() == "wms":
         args = data_provider.dataSourceUri().split("&")
         for arg in args:
             if arg.find("url=") is not -1:
@@ -367,7 +373,6 @@ def open_dataset(data_provider):
         if url is None:
             raise Exception("Could not find url parameter in data source")
         gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
-        print(gdal_string)
     elif data_provider.name() == "gdal":
         gdal_string = data_provider.dataSourceUri()
     else:
@@ -381,10 +386,10 @@ def crop(out, src, extent_win_string, extent_srs):
         extent_win_string, extent_srs))
 
 
-def warp(out, src, dst_srs, extent_win_string, target_res):
+def warp(out, src, dst_srs, extent_win_string, target_resolution):
     options_string = "-t_srs %s, " % dst_srs
-    if target_res['x'] > 0 and target_res['y'] > 0:  # if no custom target res is defined, these should both be 0
-        options_string += "-tr %s %s" % (target_res['x'], target_res['y'])
+    if target_resolution['x'] > 0 and target_resolution['y'] > 0:  # if no custom target res is defined, these should both be 0
+        options_string += "-tr %s %s" % (target_resolution['x'], target_resolution['y'])
     return gdal.Warp(out, src, options=options_string)
 
 
@@ -449,10 +454,10 @@ def pre_launch_checks():
     pass
 
 
-def get_target_res(self):
-    if self.dlg.res_checkbox.isChecked():
-        return {'x': self.dlg.x_res_box.value(),
-                'y': self.dlg.y_res_box.value()}
+def get_target_resolution(self):
+    if self.dlg.resolution_checkbox.isChecked():
+        return {'x': self.dlg.x_resolution_box.value(),
+                'y': self.dlg.y_resolution_box.value()}
     else:
         return {'x': 0, 'y': 0}
 

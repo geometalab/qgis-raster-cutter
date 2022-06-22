@@ -9,7 +9,7 @@ def add_tooltips(self):
 
 
 def section_tips(self):
-    input_section_tooltip = "<p>A raster layer - i.e. an internet map image service (WMS, WMTS, XYZ/TMS) - or a local file (GeoTIFF format). Make sure you have a matching CRS. A list of map services is available e.g. in the \"Quick Map Services\" plugin.</p>"
+    input_section_tooltip = "<p>A raster layer - i.e. an internet map image service (WMS, WMTS, XYZ/TMS) - or a local file (GeoTIFF format). A list of map services is available e.g. in the \"Quick Map Services\" plugin. Make sure your QGIS project has a matching CRS.</p>"
     input_section_whatsthis = input_section_tooltip + "<p>Select the raster data to cut and set the extent of the output raster with the two widgets below.</p>"
     output_section_tooltip = "<p>A raster file in an image format (PNG, JPG, GeoTIFF) with a certain smaller extent, possibly with a sidecar file (World File etc.) and eventually reprojected into a CRS and with certain resolution.</p>"
     output_section_whatsthis = output_section_tooltip
@@ -64,13 +64,13 @@ def crs_tips(self):
 def resolution_tips(self):
     resolution_tooltip = "<p>Set output file resolution (in target georeferenced units). The resolution defines the dimensions of a pixles in map units, for x and y. </p>"
     resolution_whatsthis = resolution_tooltip + "<p>For example, for CH1903+ / LV95, the map unit is a meter. This means that a resolution of x: 0.5 equals two pixels for each meter on the map on the horizontal axis. </p><p>It is generally advisable to set the x and y resolution to the same value. </p><p>If a image cannot be saved because of a too large file size, increase the x and y values.</p>"
-    self.dlg.res_checkbox.setToolTip(resolution_tooltip)
-    self.dlg.res_checkbox.setWhatsThis(resolution_whatsthis)
-    self.dlg.x_res_label.setToolTip(resolution_tooltip)
-    self.dlg.x_res_label.setWhatsThis(resolution_whatsthis)
-    self.dlg.y_res_label.setToolTip(resolution_tooltip)
-    self.dlg.y_res_label.setWhatsThis(resolution_whatsthis)
-    self.dlg.x_res_box.setToolTip(resolution_tooltip)
-    self.dlg.x_res_box.setWhatsThis(resolution_whatsthis)
-    self.dlg.y_res_box.setToolTip(resolution_tooltip)
-    self.dlg.y_res_box.setWhatsThis(resolution_whatsthis)
+    self.dlg.resolution_checkbox.setToolTip(resolution_tooltip)
+    self.dlg.resolution_checkbox.setWhatsThis(resolution_whatsthis)
+    self.dlg.x_resolution_label.setToolTip(resolution_tooltip)
+    self.dlg.x_resolution_label.setWhatsThis(resolution_whatsthis)
+    self.dlg.y_resolution_label.setToolTip(resolution_tooltip)
+    self.dlg.y_resolution_label.setWhatsThis(resolution_whatsthis)
+    self.dlg.x_resolution_box.setToolTip(resolution_tooltip)
+    self.dlg.x_resolution_box.setWhatsThis(resolution_whatsthis)
+    self.dlg.y_resolution_box.setToolTip(resolution_tooltip)
+    self.dlg.y_resolution_box.setWhatsThis(resolution_whatsthis)
