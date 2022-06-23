@@ -263,15 +263,17 @@ class RasterCutter:
             format_string = ""
 
             # Set format string and format specific settings
+            # worldfile is always generated for non georeferenced types, as wished by stefan
             if directory_url.endswith(".jpg"):
                 format_string = "JPEG"
                 # enables progressive jpg creation (https://gdal.org/drivers/raster/jpeg.html#creation-options)
                 # options_string += "-co PROGRESSIVE=ON, "
+                options_string += "-co WORLDFILE=YES, "
             elif directory_url.endswith(".png"):
                 format_string = "PNG"
-
-            # worldfile is always generated, as wished by stefan
-            options_string += "-co WORLDFILE=YES, "
+                options_string += "-co WORLDFILE=YES, "
+            elif directory_url.endswith(".tif"):
+                pass
 
             # create the task which contains the actual calculations and add the task to the task manager, starting it
             # the task is saved in a global variable to avoid a bug (https://gis.stackexchange.com/questions/390652/qgstask-fromfunction-not-running-on-finished-method-unless-an-exception-is-raise)

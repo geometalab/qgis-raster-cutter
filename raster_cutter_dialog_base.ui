@@ -124,7 +124,7 @@
       <item>
        <widget class="QgsFileWidget" name="file_dest_field">
         <property name="filter">
-         <string>PNG (*.png);;JPG (*.jpg)</string>
+         <string>PNG (*.png);;JPG (*.jpg);;GeoTIFF (*.tif)</string>
         </property>
         <property name="storageMode">
          <enum>QgsFileWidget::SaveFile</enum>
