@@ -188,7 +188,7 @@ class RasterCutter:
         icon_path = ':/plugins/raster_cutter/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Cut out raster layer to....'),
+            text=self.tr(u'Cut out raster layer to...'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -211,7 +211,7 @@ class RasterCutter:
         if self.first_start:
             self.first_start = False
             self.dlg = RasterCutterDialog()
-            self.dlg.file_dest_field.setFilePath(default_filepath(self))  # set path to user home
+            self.dlg.file_dest_field.setFilePath(default_filepath())  # set path to user home
             widget_init(self)
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
@@ -442,7 +442,7 @@ def delete_tms_xml():
         os.remove(temp_file_path)
 
 def get_file_path(file_name):
-    return os.path.dirname(__file__) + '/' + file_name
+    return os.path.join(os.path.dirname(__file__), file_name)
 
 def crop(out, src, extent_win_string, extent_srs):
     return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (
@@ -506,15 +506,13 @@ def generate_lexocad_files(directoryUrl):
 
 # adds the passed file to the map
 def add_file_to_map(iface, map_uri, baseName):
-    # TODO Qgis breaks when this happens
     map_uri = map_uri.replace("\\", "/")
     iface.addRasterLayer(map_uri, baseName)
-    # QgsProject.instance().reloadAllLayers()
 
 
 # the default filepath for the file selection dialogue
-def default_filepath(self):
-    return os.path.expanduser("~\cropped.png")
+def default_filepath():
+    return os.path.expanduser(f"~{os.path.sep}cropped.png")
 
 
 def delete_world_file(directory_url):
