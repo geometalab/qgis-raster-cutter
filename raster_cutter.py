@@ -24,7 +24,7 @@
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QWhatsThis
+from qgis.PyQt.QtWidgets import QAction, QWhatsThis, QMessageBox
 from qgis.core import (QgsProject,
                        QgsMapLayer,
                        QgsCoordinateReferenceSystem,
@@ -234,21 +234,31 @@ class RasterCutter:
         # See if OK was pressed
         if result:
             directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
+
+            # if file already exists, ask user if he is sure.
+            if os.path.exists(directory_url):
+                reply = QMessageBox.question(self.dlg, 'Message', "This file already exists. Overwrite?",
+                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply == QMessageBox.No:
+                    return  # TODO is there a way to open the dialog again if "No" is selected
+
+            # get selected layer and check if layer is valid
             selected_layer = self.dlg.layer_combobox.currentLayer()
             data_provider = selected_layer.dataProvider()
             error = pre_process_checks(selected_layer, data_provider)
             if error is not None:
                 error_message(error)
                 return
+
+            # open the dataset
             src, error = open_dataset(data_provider)
-            x_resolution, y_resolution = src.RasterXSize, src.RasterYSize
-            print(str(x_resolution) + " " + str(y_resolution))
             if error is not None:
                 error_message(error)
                 return
 
+            # initialize strings
             options_string = ""
-            format_string = None
+            format_string = ""
 
             # Set format string and format specific settings
             if directory_url.endswith(".jpg"):
@@ -258,9 +268,10 @@ class RasterCutter:
             elif directory_url.endswith(".png"):
                 format_string = "PNG"
 
-            # Worldfile is now always generated, as wished by stefan
+            # worldfile is always generated, as wished by stefan
             options_string += "-co WORLDFILE=YES, "
 
+            # create the task which contains the actual calculations and add the task to the task manager, starting it
             process_task = QgsTask.fromFunction("Creating Files", process,
                                                 on_finished=completed,
                                                 src=src,
@@ -278,8 +289,8 @@ class RasterCutter:
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
 
+# initializes some connections, only needed once
 def widget_init(self):
-    # input layer init
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggled(self))
     self.dlg.resolution_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
@@ -287,6 +298,7 @@ def widget_init(self):
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
 
 
+# enables/disables x & y resolution spin boxes depending on resolution checkbox state
 def on_resolution_checkbox_toggled(self):
     if self.dlg.resolution_checkbox.isChecked():
         self.dlg.x_resolution_box.setEnabled(True)
@@ -297,6 +309,7 @@ def on_resolution_checkbox_toggled(self):
 
 
 def on_lexocad_toggled(self):
+    # enables/disables crs selection widget and sets CRS depending on lexocad checkbox state
     if self.dlg.lexocad_checkbox.isChecked():
         self.dlg.proj_selection.setEnabled(False)
         self.dlg.proj_selection.setCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
@@ -304,8 +317,8 @@ def on_lexocad_toggled(self):
         self.dlg.proj_selection.setEnabled(True)
 
 
+# sets the layer dropdown to the selected layer in the QGIS layer manager, if one is selected
 def select_current_layer(self):
-    # sets the layer dropdown to the selected layer in the QGIS layer manager, if one is selected
     if self.iface.layerTreeView().selectedLayers():
         self.dlg.layer_combobox.setLayer(
             self.iface.layerTreeView().selectedLayers()[0])  # select the selected layer in the dropdown
@@ -315,26 +328,31 @@ def get_target_projection(self):
     return self.dlg.proj_selection.crs()
 
 
+# returns extent window as a string for use in gdal
 def get_extent_win(self):
     e = self.dlg.extent_box.outputExtent()
     return f"{e.xMinimum()} {e.yMaximum()} {e.xMaximum()} {e.yMinimum()}"
 
 
+# this is where all calculations actually happen
 def process(task, src, iface, directory_url, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
             generate_worldfile: bool, add_to_map: bool, target_resolution: {"x": float, "y": float}):
+    # Crop raster, so that only the needed parts are reprojected, saving processing time
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
-    if task.isCanceled():
+    if task.isCanceled():  # check if task was cancelled between each step
         stopped(task)
         return None
 
+    # reproject and set resolution
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
     warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_resolution)
     if task.isCanceled():
         stopped(task)
         return None
 
+    # translate to PNG/JPG and generate worldfile
     QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.Info)
     translated = translate(directory_url, warped, format_string, options_string)
     if task.isCanceled():
@@ -346,15 +364,19 @@ def process(task, src, iface, directory_url, dest_srs, format_string, extent_win
     warped = None
     cropped = None
 
+    # if image should be added to map, get filename (without extension) of the resulting file for layer name
+    # and add it to the map
     if add_to_map:
         file = os.path.basename(directory_url)
         file_name, file_ext = os.path.splitext(file)
         add_file_to_map(iface, translated.GetDescription(), f"{file_name} cropped")
+
     manage_files(generate_lexocad, generate_worldfile, directory_url)
     QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
     return translated
 
 
+# generate lexocad file and delete worldfile if wanted
 def manage_files(generate_lexocad, generate_worldfile, dir_url):
     if not generate_worldfile and not generate_lexocad:
         return
@@ -365,6 +387,7 @@ def manage_files(generate_lexocad, generate_worldfile, dir_url):
         delete_world_file(dir_url)
 
 
+# takes the data provider of a layer and opens it as a gdal dataset to be used further
 def open_dataset(data_provider):
     QgsMessageLog.logMessage(data_provider.name(), MESSAGE_CATEGORY, Qgis.Info)
     QgsMessageLog.logMessage(data_provider.dataSourceUri(), MESSAGE_CATEGORY, Qgis.Info)
@@ -403,6 +426,7 @@ def translate(directory_url, src, format_string, options_string):
                           options=options_string)
 
 
+# This is called if the task is finished
 def completed(exception, result=None):
     result = None  # Properly close dataset
     if exception is None:
@@ -416,6 +440,9 @@ def stopped(task):
     error_message('Task "{name}" was canceled'.format(name=task.description()))
 
 
+# gets the contents of the worldfile and makes some calculations, as a lexocad sidecar file doesn't contain quite the
+# same information, but contains all the necessary to calculate the contents.
+# After the calculations, a file is created and the contents are written into it
 def generate_lexocad_files(directoryUrl):
     worldfile_path = get_worldfile_url_from_dir(directoryUrl)
     with open(worldfile_path, "r") as worldfile:
@@ -439,12 +466,15 @@ def generate_lexocad_files(directoryUrl):
                 )
 
 
+# adds the passed file to the map
 def add_file_to_map(iface, map_uri, baseName):
+    # TODO Qgis breaks when this happens
     map_uri = map_uri.replace("\\", "/")
     iface.addRasterLayer(map_uri, baseName)
     # QgsProject.instance().reloadAllLayers()
 
 
+# the default filepath for the file selection dialogue
 def default_filepath(self):
     return os.path.expanduser("~\cropped.png")
 
@@ -455,6 +485,7 @@ def delete_world_file(directory_url):
         os.remove(worldfile_path)
 
 
+# generates the path where the worldfile can be found when given the path of the raster file
 def get_worldfile_url_from_dir(directory_url):
     index = directory_url.find(".")
     if index != -1:
@@ -465,6 +496,7 @@ def get_worldfile_url_from_dir(directory_url):
     return worldfile_path
 
 
+# reads input from resolution spin boxes and returns them in a dict
 def get_target_resolution(self):
     if self.dlg.resolution_checkbox.isChecked():
         return {'x': self.dlg.x_resolution_box.value(),
@@ -473,6 +505,7 @@ def get_target_resolution(self):
         return {'x': 0, 'y': 0}
 
 
+# checks which should be run when clicking on "OK", before calculations are started.
 def pre_process_checks(layer, data_provider):
     if layer.type() is QgsMapLayer.VectorLayer:
         return "Provided Layer is a vector layer. Please select a raster layer."
@@ -483,12 +516,14 @@ def pre_process_checks(layer, data_provider):
     return None
 
 
+# throw an error message for the user
 def error_message(message):
     self = globals()['self']
     QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
     self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
 
 
+# enter WhatsThis mode
 def help_mode():
     QWhatsThis.enterWhatsThisMode()
     self = globals()['self']

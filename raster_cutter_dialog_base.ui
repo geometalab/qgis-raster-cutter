@@ -129,6 +129,9 @@
         <property name="storageMode">
          <enum>QgsFileWidget::SaveFile</enum>
         </property>
+        <property name="options">
+         <set>QFileDialog::DontConfirmOverwrite</set>
+        </property>
        </widget>
       </item>
      </layout>
