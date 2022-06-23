@@ -22,7 +22,7 @@
  ***************************************************************************/
 """
 
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, pyqtSignal
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QWhatsThis, QMessageBox
 from qgis.core import (QgsProject,
@@ -272,20 +272,21 @@ class RasterCutter:
             options_string += "-co WORLDFILE=YES, "
 
             # create the task which contains the actual calculations and add the task to the task manager, starting it
-            process_task = QgsTask.fromFunction("Creating Files", process,
-                                                on_finished=completed,
-                                                src=src,
-                                                iface=self.iface,
-                                                directory_url=directory_url,
-                                                dest_srs=get_target_projection(self).authid(),
-                                                format_string=format_string,
-                                                options_string=options_string,
-                                                extent_win_string=get_extent_win(self),
-                                                generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
-                                                generate_worldfile=True,
-                                                add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
-                                                target_resolution=get_target_resolution(self))
-            QgsApplication.taskManager().addTask(process_task)
+            # the task is saved in a global variable to avoid a bug (https://gis.stackexchange.com/questions/390652/qgstask-fromfunction-not-running-on-finished-method-unless-an-exception-is-raise)
+            globals()['process_task'] = QgsTask.fromFunction("Creating Files", process,
+                                                             on_finished=completed,
+                                                             src=src,
+                                                             iface=self.iface,
+                                                             directory_url=directory_url,
+                                                             dest_srs=get_target_projection(self).authid(),
+                                                             format_string=format_string,
+                                                             options_string=options_string,
+                                                             extent_win_string=get_extent_win(self),
+                                                             generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
+                                                             generate_worldfile=True,
+                                                             add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
+                                                             target_resolution=get_target_resolution(self))
+            QgsApplication.taskManager().addTask(globals()['process_task'])
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
 
@@ -365,15 +366,16 @@ def process(task, src, iface, directory_url, dest_srs, format_string, extent_win
     cropped = None
 
     # if image should be added to map, get filename (without extension) of the resulting file for layer name
-    # and add it to the map
+    # and put it into filename. If filename is empty, map will not get added
+    file_name = ""
     if add_to_map:
         file = os.path.basename(directory_url)
-        file_name, file_ext = os.path.splitext(file)
-        add_file_to_map(iface, translated.GetDescription(), f"{file_name} cropped")
+        file_name_no_ext, file_ext = os.path.splitext(file)
+        file_name = f"{file_name_no_ext} cropped"
 
     manage_files(generate_lexocad, generate_worldfile, directory_url)
-    QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
-    return translated
+
+    return {"ds": translated, "iface": iface, "path": translated.GetDescription(), "file_name": file_name}
 
 
 # generate lexocad file and delete worldfile if wanted
@@ -428,9 +430,11 @@ def translate(directory_url, src, format_string, options_string):
 
 # This is called if the task is finished
 def completed(exception, result=None):
-    result = None  # Properly close dataset
     if exception is None:
-        # TODO This never gets called?
+        if result['file_name'] is not "":
+            QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.Info)
+            add_file_to_map(result['iface'], result['path'], result['file_name'])
+        QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
         globals()['self'].iface.messageBar().pushMessage("Success", "Layer exported", level=Qgis.Info)
     else:
         error_message("Exception: {}".format(exception))
