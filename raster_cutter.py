@@ -389,12 +389,11 @@ def manage_files(generate_lexocad, generate_worldfile, dir_url):
         generate_lexocad_files(dir_url)
     if not generate_worldfile and generate_lexocad:
         delete_world_file(dir_url)
+    delete_tms_xml()  # is only necessary if layer was XYZ, but executes always
 
 
 # takes the data provider of a layer and opens it as a gdal dataset to be used further
 def open_dataset(data_provider):
-    QgsMessageLog.logMessage(data_provider.name(), MESSAGE_CATEGORY, Qgis.Info)
-    QgsMessageLog.logMessage(data_provider.dataSourceUri(), MESSAGE_CATEGORY, Qgis.Info)
     if data_provider.name() == "wms":
         # find the type and url parameter in the dataSourceUri string. if either is not found, raise error
         type_string = None
@@ -413,7 +412,6 @@ def open_dataset(data_provider):
         # if the wms datasource contains a "type=xyz", a different approach is required
         if type_string == "xyz":
             xml_file_path = generate_tms_xml(url)
-            QgsMessageLog.logMessage(xml_file_path, MESSAGE_CATEGORY, Qgis.Info)
             return xml_file_path, None
         else:
             gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
@@ -429,7 +427,6 @@ def open_dataset(data_provider):
 
 def generate_tms_xml(url):
     model_file_path = get_file_path('xyz_tms.xml')
-    QgsMessageLog.logMessage(model_file_path, MESSAGE_CATEGORY, Qgis.Info)
     temp_file_path = get_file_path('xyz_tms_tmp.xml')
     shutil.copyfile(model_file_path, temp_file_path)
     with open(temp_file_path, 'r', encoding="utf-8") as file:
@@ -441,7 +438,8 @@ def generate_tms_xml(url):
 
 def delete_tms_xml():
     temp_file_path = get_file_path('xyz_tms_tmp.xml')
-    os.remove(temp_file_path)
+    if os.path.exists(temp_file_path):
+        os.remove(temp_file_path)
 
 def get_file_path(file_name):
     return os.path.dirname(__file__) + '/' + file_name
