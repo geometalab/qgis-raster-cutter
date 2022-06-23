@@ -45,6 +45,8 @@ from .tooltips import *
 import os.path
 from osgeo import gdal
 
+import shutil
+from urllib.parse import unquote
 from PIL import Image  # for reading dimensions of image
 
 MESSAGE_CATEGORY = 'Raster Cutter'
@@ -394,14 +396,29 @@ def open_dataset(data_provider):
     QgsMessageLog.logMessage(data_provider.name(), MESSAGE_CATEGORY, Qgis.Info)
     QgsMessageLog.logMessage(data_provider.dataSourceUri(), MESSAGE_CATEGORY, Qgis.Info)
     if data_provider.name() == "wms":
+        # find the type and url parameter in the dataSourceUri string. if either is not found, raise error
+        type_string = None
+        url = None
         args = data_provider.dataSourceUri().split("&")
+
         for arg in args:
+            if arg.find("type=") is not -1:
+                type_string = arg
+                type_string = type_string.replace("type=", "")
             if arg.find("url=") is not -1:
                 url = arg
                 url = url.replace("url=", "")
         if url is None:
-            raise Exception("Could not find url parameter in data source")
-        gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
+            raise Exception("Could not find type parameter in data source")
+        # if the wms datasource contains a "type=xyz", a different approach is required
+        if type_string == "xyz":
+            xml_file_path = generate_tms_xml(url)
+            QgsMessageLog.logMessage(xml_file_path, MESSAGE_CATEGORY, Qgis.Info)
+            return xml_file_path, None
+        else:
+            gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
+
+
     elif data_provider.name() == "gdal":
         gdal_string = data_provider.dataSourceUri()
     else:
@@ -409,6 +426,25 @@ def open_dataset(data_provider):
 
     return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
 
+
+def generate_tms_xml(url):
+    model_file_path = get_file_path('xyz_tms.xml')
+    QgsMessageLog.logMessage(model_file_path, MESSAGE_CATEGORY, Qgis.Info)
+    temp_file_path = get_file_path('xyz_tms_tmp.xml')
+    shutil.copyfile(model_file_path, temp_file_path)
+    with open(temp_file_path, 'r', encoding="utf-8") as file:
+        data = file.read()
+        data = data.replace("URL_HERE", unquote(url).replace('{', '${'))
+    with open(temp_file_path, 'w', encoding="utf-8") as file:
+        file.write(data)
+    return temp_file_path
+
+def delete_tms_xml():
+    temp_file_path = get_file_path('xyz_tms_tmp.xml')
+    os.remove(temp_file_path)
+
+def get_file_path(file_name):
+    return os.path.dirname(__file__) + '/' + file_name
 
 def crop(out, src, extent_win_string, extent_srs):
     return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (
@@ -435,7 +471,7 @@ def completed(exception, result=None):
             QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.Info)
             add_file_to_map(result['iface'], result['path'], result['file_name'])
         QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
-        globals()['self'].iface.messageBar().pushMessage("Success", "Layer exported", level=Qgis.Info)
+        globals()['self'].iface.messageBar().pushMessage("Success", f"Layer exported to {result['path']}", level=Qgis.Info)
     else:
         error_message("Exception: {}".format(exception))
 
