@@ -561,6 +561,7 @@ def error_message(message):
     self = globals()['self']
     QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
     self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
+    raise Exception(message)
 
 
 # enter WhatsThis mode
