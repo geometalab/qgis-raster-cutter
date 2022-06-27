@@ -289,7 +289,8 @@ class RasterCutter:
                                                              generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
                                                              generate_worldfile=True,
                                                              add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
-                                                             target_resolution=get_target_resolution(self))
+                                                             target_resolution=get_target_resolution(self),
+                                                             resampling_method=get_resampling_method(self))
             QgsApplication.taskManager().addTask(globals()['process_task'])
             QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
 
@@ -353,21 +354,30 @@ def get_extent_win(self):
     e = self.dlg.extent_box.outputExtent()
     return f"{e.xMinimum()} {e.yMaximum()} {e.xMaximum()} {e.yMinimum()}"
 
+def get_resampling_method(self):
+    if self.dlg.nearest_neighbour_radio_button.isChecked():
+        return "near"
+    elif self.dlg.cubic_spline_radio_button.isChecked():
+        return "cubicspline"
+    else:
+        error_message("Could not get resampling method.")
+
+
 
 # this is where all calculations actually happen
 def process(task, src, iface, directory_url, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
-            generate_worldfile: bool, add_to_map: bool, target_resolution: {"x": float, "y": float}):
+            generate_worldfile: bool, add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
     # Crop raster, so that only the needed parts are reprojected, saving processing time
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
-    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs)
+    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs, resampling_method)
     if task.isCanceled():  # check if task was cancelled between each step
         stopped(task)
         return None
 
     # reproject and set resolution
     QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
-    warped = warp('/vsimem/warped.tif', cropped, dest_srs, extent_win_string, target_resolution)
+    warped = warp('/vsimem/warped.tif', cropped, dest_srs, target_resolution, resampling_method)
     if task.isCanceled():
         stopped(task)
         return None
@@ -461,16 +471,15 @@ def delete_tms_xml():
 def get_file_path(file_name):
     return os.path.join(os.path.dirname(__file__), file_name)
 
-def crop(out, src, extent_win_string, extent_srs):
-    return gdal.Translate(out, src, options="-projwin %s, -projwin_srs %s, -outsize 2000 0, -r bilinear" % (
-        extent_win_string, extent_srs))
+def crop(out, src, extent_win_string, extent_srs, resampling_method):
+    return gdal.Translate(out, src, options=f"-projwin {extent_win_string}, -projwin_srs {extent_srs}, -outsize 2000 0, -r {resampling_method}")
 
-
-def warp(out, src, dst_srs, extent_win_string, target_resolution):
-    options_string = "-t_srs %s, " % dst_srs
+def warp(out, src, dst_srs, target_resolution, resampling_method):
+    options_string = f"-t_srs {dst_srs}, "
     if target_resolution['x'] > 0 and target_resolution[
         'y'] > 0:  # if no custom target res is defined, these should both be 0
-        options_string += "-tr %s %s" % (target_resolution['x'], target_resolution['y'])
+        options_string += f"-tr {target_resolution['x']} {target_resolution['y']}, "
+    options_string += f"-r {resampling_method}"
     return gdal.Warp(out, src, options=options_string)
 
 
