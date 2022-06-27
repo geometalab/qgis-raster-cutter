@@ -9,7 +9,18 @@ Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if d
 
 ### Using this tool
 
-*Work in Progress*
+1. Start QGIS - install QGIS plugin 'Raster Cutter' if necessary - and open "New Project".
+2. Set the QGIS project to the CRS "EPSG:2056" (= Swiss coordinate reference system CH/LV95) (bottom right).
+3. If necessary, load background/base map (e.g. OpenStreetMap or MapGeoAdmin). Make sure that the CRS is still "EPSG:2056". 
+4. Load raster file/data source (= input layer) (WMS, WMTS/XYZ/TMS, GeoTIFF) and zoom to the desired section. 
+5. Open the dialog of the 'Raster Cutter' plugin and define the necessary parameters:
+   1. choose the input layer (if not already selected)
+   2. set the extent by clicking on "Map Canvas Extent". 
+   3. Set the path and name of the output and the output format (GeoTIFF, PNG or JPG).
+6. Set additional parameters if necessary (for advanced users): CRS and Output resolution. 
+7. finished (load and view with QGIS or Lexocad).
+
+(Translated from https://md.coredump.ch/2H-jGnDTSbuBk7ai0xWIxA?view#Bedienungsanleitung)
 
 ### Set up local developement
 
