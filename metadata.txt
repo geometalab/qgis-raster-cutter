@@ -6,7 +6,7 @@
 name=Raster Cutter
 qgisMinimumVersion=3.0
 description=Export a raster layer as an image. Select extent, reproject, create Worldfile or Lexocad sidecar files.
-version=0.2
+version=0.3
 author=IFS Institute for Software
 email=feedback.ifs@ost.ch
 
