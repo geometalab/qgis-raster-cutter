@@ -299,8 +299,13 @@ def widget_init(self):
     self.dlg.layer_combobox.setShowCrs(True)
     self.dlg.lexocad_checkbox.toggled.connect(lambda: on_lexocad_toggled(self))
     self.dlg.resolution_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
-    on_resolution_checkbox_toggled(self)
+    self.dlg.file_dest_field.fileChanged.connect(lambda: on_tif_selected(self))
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
+
+    # also check states when dialog is opened
+    on_resolution_checkbox_toggled(self)
+    on_lexocad_toggled(self)
+    on_tif_selected(self)
 
 
 # enables/disables x & y resolution spin boxes depending on resolution checkbox state
@@ -320,6 +325,16 @@ def on_lexocad_toggled(self):
         self.dlg.proj_selection.setCrs(QgsCoordinateReferenceSystem.fromEpsgId(2056))
     else:
         self.dlg.proj_selection.setEnabled(True)
+
+def on_tif_selected(self):
+    # enables/disables the lexocad checkbox depending on if output file is a geotiff
+    path = self.dlg.file_dest_field.filePath()
+    filename, file_extension = os.path.splitext(path)
+    if file_extension == ".tif":
+        self.dlg.lexocad_checkbox.setChecked(False)
+        self.dlg.lexocad_checkbox.setEnabled(False)
+    else:
+        self.dlg.lexocad_checkbox.setEnabled(True)
 
 
 # sets the layer dropdown to the selected layer in the QGIS layer manager, if one is selected
