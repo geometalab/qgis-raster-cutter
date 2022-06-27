@@ -28,6 +28,7 @@ from qgis.PyQt.QtWidgets import QAction, QWhatsThis, QMessageBox
 from qgis.core import (QgsProject,
                        QgsMapLayer,
                        QgsCoordinateReferenceSystem,
+                       QgsMapLayerProxyModel,
                        QgsTask,
                        Qgis,
                        QgsRasterLayer,
@@ -302,6 +303,7 @@ def widget_init(self):
     self.dlg.resolution_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
     self.dlg.file_dest_field.fileChanged.connect(lambda: on_tif_selected(self))
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
+    self.dlg.layer_combobox.setFilters(QgsMapLayerProxyModel.RasterLayer)
 
     # also check states when dialog is opened
     on_resolution_checkbox_toggled(self)
@@ -583,7 +585,7 @@ def error_message(message):
     self = globals()['self']
     QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
     self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
-    raise Exception(message)
+    # raise Exception(message)
 
 
 # enter WhatsThis mode
