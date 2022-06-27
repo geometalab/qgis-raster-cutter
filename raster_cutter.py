@@ -288,7 +288,6 @@ class RasterCutter:
                                                              options_string=options_string,
                                                              extent_win_string=get_extent_win(self),
                                                              generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
-                                                             generate_worldfile=True,
                                                              add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
                                                              target_resolution=get_target_resolution(self),
                                                              resampling_method=get_resampling_method(self))
@@ -369,7 +368,7 @@ def get_resampling_method(self):
 # this is where all calculations actually happen
 def process(task, src, iface, directory_url, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
-            generate_worldfile: bool, add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
+            add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
     # Crop raster, so that only the needed parts are reprojected, saving processing time
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs, resampling_method)
@@ -404,20 +403,19 @@ def process(task, src, iface, directory_url, dest_srs, format_string, extent_win
         file_name_no_ext, file_ext = os.path.splitext(file)
         file_name = f"{file_name_no_ext} cropped"
 
-    manage_files(generate_lexocad, generate_worldfile, directory_url)
+    manage_files(generate_lexocad, add_to_map, directory_url)
 
     return {"ds": translated, "iface": iface, "path": translated.GetDescription(), "file_name": file_name}
 
 
-# generate lexocad file and delete worldfile if wanted
-def manage_files(generate_lexocad, generate_worldfile, dir_url):
-    if not generate_worldfile and not generate_lexocad:
-        return
-    QgsMessageLog.logMessage("Creating sidecar files", MESSAGE_CATEGORY, Qgis.Info)
+# generate lexocad file and delete worldfile and .aux.xml if needed
+def manage_files(generate_lexocad: bool, add_to_map: bool, dir_url):
+    QgsMessageLog.logMessage("Managing sidecar files", MESSAGE_CATEGORY, Qgis.Info)
     if generate_lexocad:
         generate_lexocad_files(dir_url)
-    if not generate_worldfile and generate_lexocad:
-        delete_world_file(dir_url)
+    if not add_to_map:
+        delete_aux_xml_file(dir_url)
+
     delete_tms_xml()  # is only necessary if layer was XYZ, but executes always
 
 
@@ -469,6 +467,11 @@ def delete_tms_xml():
     temp_file_path = get_file_path('xyz_tms_tmp.xml')
     if os.path.exists(temp_file_path):
         os.remove(temp_file_path)
+
+def delete_aux_xml_file(path):
+    aux_xml_file_path = path + '.aux.xml'
+    os.remove(aux_xml_file_path)
+
 
 def get_file_path(file_name):
     return os.path.join(os.path.dirname(__file__), file_name)

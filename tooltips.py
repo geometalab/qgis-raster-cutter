@@ -7,6 +7,7 @@ def add_tooltips(self):
     crs_tips(self)
     resolution_tips(self)
     resampling_algorithm_tips(self)
+    add_to_map_tooltips(self)
 
 
 def section_tips(self):
@@ -87,7 +88,6 @@ def resampling_algorithm_tips(self):
     cubic_spline_tooltip = '<p>Suitable for continuous <span style=" font-weight:600;">gray tone</span> data. Values are interpolated</p>'
     cubic_spline_whatsthis = cubic_spline_tooltip + ''
 
-
     resampling_algorithm_tooltip = '<p>Determines how values are interpolated between known data points. This affects how sharp the exported image looks.</p>'
     resampling_algorithm_whatsthis = resampling_algorithm_tooltip + f'<p><span style=" font-weight:600;">Nearest Neighbour</span></p>{nearest_neighbour_tooltip}<p><span style=" font-weight:600;">Cubic Spline</span></p>{cubic_spline_tooltip}'
 
@@ -101,3 +101,10 @@ def resampling_algorithm_tips(self):
     cubic_spline_whatsthis = cubic_spline_tooltip + ""
     self.dlg.cubic_spline_radio_button.setToolTip(cubic_spline_tooltip)
     self.dlg.cubic_spline_radio_button.setWhatsThis(cubic_spline_whatsthis)
+
+
+def add_to_map_tooltips(self):
+    add_to_map_tooltip = '<p>When checked, the generated raster image will be added to the current project as a new layer after the image has been generated.</p>'
+    add_to_map_whatsthis = add_to_map_tooltip + '<p>If checked, a sidecar file with the ending ".aux.xml" will be generated. This file lets QGIS and other applications know in which CRS the coordinates in the worldfile are defined.</p>'
+    self.dlg.add_to_map_checkbox.setToolTip(add_to_map_tooltip)
+    self.dlg.add_to_map_checkbox.setWhatsThis(add_to_map_whatsthis)
