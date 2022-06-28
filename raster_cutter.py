@@ -283,6 +283,7 @@ class RasterCutter:
                                                              src=src,
                                                              iface=self.iface,
                                                              directory_url=directory_url,
+                                                             src_srs=get_source_projection(self).authid(),
                                                              dest_srs=get_target_projection(self).authid(),
                                                              format_string=format_string,
                                                              options_string=options_string,
@@ -349,6 +350,8 @@ def select_current_layer(self):
 def get_target_projection(self):
     return self.dlg.proj_selection.crs()
 
+def get_source_projection(self):
+    return self.dlg.extent_box.outputCrs()
 
 # returns extent window as a string for use in gdal
 def get_extent_win(self):
@@ -366,12 +369,12 @@ def get_resampling_method(self):
 
 
 # this is where all calculations actually happen
-def process(task, src, iface, directory_url, dest_srs, format_string, extent_win_string, options_string,
+def process(task, src, iface, directory_url, src_srs, dest_srs, format_string, extent_win_string, options_string,
             generate_lexocad: bool,
             add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
     # Crop raster, so that only the needed parts are reprojected, saving processing time
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
-    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, dest_srs, resampling_method)
+    cropped = crop('/vsimem/cropped.tif', src, extent_win_string, src_srs, resampling_method)
     if task.isCanceled():  # check if task was cancelled between each step
         stopped(task)
         return None
@@ -524,14 +527,15 @@ def generate_lexocad_files(directoryUrl):
     xMinimum = float(lines[4])
     yMinimum = float(lines[5]) - height
     with open(directoryUrl + "l", 'w') as f:
-        f.write(f"{str(xMinimum)}"
-                f"{str(yMinimum)}"
-                f"str(float(width))"
-                f"str(float(height))"
-                f"# cadwork swisstopo"
-                f"# {str(xMinimum)}  {str(yMinimum)}"
-                f"# {str(width)}  {str(height)}"
-                f"# projection: EPSG:2056 - CH1903+ / LV95"
+        f.write(f"{round(xMinimum)} \n"
+                f"{round(yMinimum)} \n"
+                f"{round(float(width))} \n"
+                f"{round(float(height))} \n"
+                f"\n"
+                f"# cadwork swisstopo \n"
+                f"# {round(xMinimum)}  {round(yMinimum)} \n"
+                f"# {round(width)}  {round(height)} \n"
+                f"# projection: EPSG:2056 - CH1903+ / LV95 \n"
                 )
 
 
