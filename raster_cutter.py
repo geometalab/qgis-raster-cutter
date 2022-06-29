@@ -207,6 +207,8 @@ class RasterCutter:
     def run(self):
         """Run method that performs all the real work"""
 
+
+
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start:
@@ -215,6 +217,10 @@ class RasterCutter:
             self.dlg.file_dest_field.setFilePath(default_filepath())  # set path to user home
             # self.dlg.setWindowFlags(QtCore.Qt.Popup)
             widget_init(self)
+
+        if self.dlg.isVisible(): # if window is
+            self.dlg.activateWindow()
+            return
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
         if layers:  # if there are layers in the project, we can set extent box extents and crs's
