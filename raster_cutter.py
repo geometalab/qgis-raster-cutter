@@ -55,8 +55,8 @@ MESSAGE_CATEGORY = 'Raster Cutter'
 gdal.UseExceptions()
 
 
-# TODO help button
-# TODO imports?
+
+# TODO Clicking on the icon twice acts like pressing "run"??
 # TODO add QgsSubTask for splitting tasks (report progress?)
 
 class RasterCutter:
@@ -213,6 +213,7 @@ class RasterCutter:
             self.first_start = False
             self.dlg = RasterCutterDialog()
             self.dlg.file_dest_field.setFilePath(default_filepath())  # set path to user home
+            # self.dlg.setWindowFlags(QtCore.Qt.Popup)
             widget_init(self)
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
@@ -503,7 +504,7 @@ def completed(exception, result=None):
             QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.Info)
             add_file_to_map(result['iface'], result['path'], result['file_name'])
         QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
-        globals()['self'].iface.messageBar().pushMessage("Success", f"Layer exported to {result['path']}", level=Qgis.Info)
+        globals()['self'].iface.messageBar().pushMessage("Success", f"Layer exported to {result['path']}", level=Qgis.Info) # TODO layer name
     else:
         error_message("Exception: {}".format(exception))
 
