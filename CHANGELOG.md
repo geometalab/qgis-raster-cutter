@@ -1,3 +1,11 @@
+## 0.5
+
+* Added WMTS support
+* Small text changes in dialog
+* Fixed bug where processing began when clicking the toolbar icon twice. Instead, the currently open dialog gets shown when clicking on the toolbar icon again.
+* Now displaying layer name in success message
+
+
 ## 0.4
 
 * Fixed bugs where the lexocad support files were not generated correctly
