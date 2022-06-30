@@ -17,6 +17,7 @@ Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if d
    1. choose the input layer (if not already selected)
    2. set the extent by clicking on "Map Canvas Extent". 
    3. Set the path and name of the output and the output format (GeoTIFF, PNG or JPG).
+   4. If desired, check the "Create LexoCAD" checkbox to generate LexoCAD georeference files.
 6. Set additional parameters if necessary (for advanced users): CRS and Output resolution. 
 7. finished (load and view with QGIS or Lexocad).
 

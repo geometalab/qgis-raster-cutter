@@ -55,8 +55,7 @@ MESSAGE_CATEGORY = 'Raster Cutter'
 gdal.UseExceptions()
 
 
-# TODO help button
-# TODO imports?
+# TODO Clicking on the icon twice acts like pressing "run"??
 # TODO add QgsSubTask for splitting tasks (report progress?)
 
 class RasterCutter:
@@ -213,15 +212,20 @@ class RasterCutter:
             self.first_start = False
             self.dlg = RasterCutterDialog()
             self.dlg.file_dest_field.setFilePath(default_filepath())  # set path to user home
+            # self.dlg.setWindowFlags(QtCore.Qt.Popup)
             widget_init(self)
+
+        if self.dlg.isVisible():  # if window is already open, just bring it to foreground
+            self.dlg.activateWindow()
+            return
 
         layers = [layer for layer in QgsProject.instance().mapLayers().values()]
         if layers:  # if there are layers in the project, we can set extent box extents and crs's
             # extentbox init
             self.dlg.extent_box.setOriginalExtent(originalExtent=self.dlg.layer_combobox.currentLayer().extent(),
                                                   originalCrs=self.dlg.layer_combobox.currentLayer().crs())
-            self.dlg.extent_box.setOutputCrs(self.dlg.layer_combobox.currentLayer().crs())
-            self.dlg.proj_selection.setCrs(self.dlg.layer_combobox.currentLayer().crs())
+            self.dlg.extent_box.setOutputCrs(QgsProject.instance().crs())
+            self.dlg.proj_selection.setCrs(QgsProject.instance().crs())
             self.dlg.extent_box.setCurrentExtent(currentExtent=self.iface.mapCanvas().extent(),
                                                  currentCrs=QgsProject.instance().crs())
         on_lexocad_toggled(
@@ -289,6 +293,7 @@ class RasterCutter:
                                                              options_string=options_string,
                                                              extent_win_string=get_extent_win(self),
                                                              generate_lexocad=self.dlg.lexocad_checkbox.isChecked(),
+                                                             layer_name=selected_layer.name(),
                                                              add_to_map=self.dlg.add_to_map_checkbox.isChecked(),
                                                              target_resolution=get_target_resolution(self),
                                                              resampling_method=get_resampling_method(self))
@@ -329,11 +334,12 @@ def on_lexocad_toggled(self):
     else:
         self.dlg.proj_selection.setEnabled(True)
 
+
 def on_tif_selected(self):
     # enables/disables the lexocad checkbox depending on if output file is a geotiff
     path = self.dlg.file_dest_field.filePath()
     filename, file_extension = os.path.splitext(path)
-    if file_extension == ".tif":
+    if file_extension == ".tif" or file_extension == ".tiff":
         self.dlg.lexocad_checkbox.setChecked(False)
         self.dlg.lexocad_checkbox.setEnabled(False)
     else:
@@ -350,13 +356,16 @@ def select_current_layer(self):
 def get_target_projection(self):
     return self.dlg.proj_selection.crs()
 
+
 def get_source_projection(self):
     return self.dlg.extent_box.outputCrs()
+
 
 # returns extent window as a string for use in gdal
 def get_extent_win(self):
     e = self.dlg.extent_box.outputExtent()
     return f"{e.xMinimum()} {e.yMaximum()} {e.xMaximum()} {e.yMinimum()}"
+
 
 def get_resampling_method(self):
     if self.dlg.nearest_neighbour_radio_button.isChecked():
@@ -367,10 +376,9 @@ def get_resampling_method(self):
         error_message("Could not get resampling method.")
 
 
-
 # this is where all calculations actually happen
 def process(task, src, iface, directory_url, src_srs, dest_srs, format_string, extent_win_string, options_string,
-            generate_lexocad: bool,
+            generate_lexocad: bool, layer_name,
             add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
     # Crop raster, so that only the needed parts are reprojected, saving processing time
     QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
@@ -408,7 +416,11 @@ def process(task, src, iface, directory_url, src_srs, dest_srs, format_string, e
 
     manage_files(generate_lexocad, add_to_map, directory_url)
 
-    return {"ds": translated, "iface": iface, "path": translated.GetDescription(), "file_name": file_name}
+    return {"ds": translated,
+            "iface": iface,
+            "path": translated.GetDescription(),
+            "file_name": file_name,
+            "layer_name": layer_name}
 
 
 # generate lexocad file and delete worldfile and .aux.xml if needed
@@ -429,6 +441,7 @@ def open_dataset(data_provider):
         type_string = None
         url = None
         args = data_provider.dataSourceUri().split("&")
+        layer = None
 
         for arg in args:
             if arg.find("type=") is not -1:
@@ -437,6 +450,9 @@ def open_dataset(data_provider):
             if arg.find("url=") is not -1:
                 url = arg
                 url = url.replace("url=", "")
+            if arg.find("layers=") is not -1:
+                layer = arg
+                layer = layer.replace("layers=", "")
         if url is None:
             raise Exception("Could not find type parameter in data source")
         # if the wms datasource contains a "type=xyz", a different approach is required
@@ -444,14 +460,19 @@ def open_dataset(data_provider):
             xml_file_path = generate_tms_xml(url)
             return xml_file_path, None
         else:
-            gdal_string = "WMS:" + url + "?" + data_provider.dataSourceUri()
+            if 'WMTSCapabilities' in url:
+                if layer is None:
+                    raise Exception(f"No layers argument found in source string: {data_provider.dataSourceUri()}")
+                gdal_string = f"<GDAL_WMTS><GetCapabilitiesUrl>{url}</GetCapabilitiesUrl><Layer>{layer}</Layer></GDAL_WMTS>"
+            else:
+                gdal_string = f"WMS:{url}?{data_provider.dataSourceUri()}"
+
 
 
     elif data_provider.name() == "gdal":
         gdal_string = data_provider.dataSourceUri()
     else:
         return None, "Could not open given dataset: %s" % data_provider.name()
-
     return gdal.Open(gdal_string, gdal.GA_ReadOnly), None
 
 
@@ -466,10 +487,12 @@ def generate_tms_xml(url):
         file.write(data)
     return temp_file_path
 
+
 def delete_tms_xml():
     temp_file_path = get_file_path('xyz_tms_tmp.xml')
     if os.path.exists(temp_file_path):
         os.remove(temp_file_path)
+
 
 def delete_aux_xml_file(path):
     aux_xml_file_path = path + '.aux.xml'
@@ -479,8 +502,11 @@ def delete_aux_xml_file(path):
 def get_file_path(file_name):
     return os.path.join(os.path.dirname(__file__), file_name)
 
+
 def crop(out, src, extent_win_string, extent_srs, resampling_method):
-    return gdal.Translate(out, src, options=f"-projwin {extent_win_string}, -projwin_srs {extent_srs}, -outsize 2000 0, -r {resampling_method}")
+    return gdal.Translate(out, src,
+                          options=f"-projwin {extent_win_string}, -projwin_srs {extent_srs}, -outsize 2000 0, -r {resampling_method}")
+
 
 def warp(out, src, dst_srs, target_resolution, resampling_method):
     options_string = f"-t_srs {dst_srs}, "
@@ -503,7 +529,9 @@ def completed(exception, result=None):
             QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.Info)
             add_file_to_map(result['iface'], result['path'], result['file_name'])
         QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
-        globals()['self'].iface.messageBar().pushMessage("Success", f"Layer exported to {result['path']}", level=Qgis.Info)
+        globals()['self'].iface.messageBar().pushMessage("Success",
+                                                         f"Layer \"{result['layer_name']}\" exported to {result['path']}",
+                                                         level=Qgis.Info)  # TODO layer name
     else:
         error_message("Exception: {}".format(exception))
 
