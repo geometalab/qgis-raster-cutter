@@ -1,45 +1,29 @@
-# This file contains metadata for your plugin.
-
-# This file should be included when you package your plugin.# Mandatory items:
+# Mandatory items:
 
 [general]
 name=Raster Cutter
 qgisMinimumVersion=3.0
 description=Export a raster layer as an image. Select extent, reproject, create Worldfile or Lexocad sidecar files.
-version=0.6
-author=IFS Institute for Software
-email=feedback.ifs@ost.ch
+version=0.6.1
+author=Fabio Zahner
+email=geometalab@ost.ch
 
 about=This plugin allows the user to select a raster layer from his project, set an extent and export the raster data within this extent to a .jpg or .png image file. Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if desired. The plugin also supports re-projection into other Coordinate Reference Systems.
 
-tracker=https://github.com/geometalab/qgis-raster-cutter/issues
 repository=https://github.com/geometalab/qgis-raster-cutter
-# End of mandatory metadata
 
-# Recommended items:
+# Optional items:
 
-hasProcessingProvider=no
-# Uncomment the following line and add your changelog:
-# changelog=
+tracker=https://github.com/geometalab/qgis-raster-cutter/issues
+homepage=https://github.com/geometalab/qgis-raster-cutter/blob/main/README.md
 
-# Tags are comma separated with spaces allowed
 tags=python, raster, crs, gdal
-
-homepage=https://github.com/geometalab/qgis-raster-cutter
 category=Raster
 icon=icon.png
-# experimental flag
 experimental=False
-
-# deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
-
-# Since QGIS 3.8, a comma separated list of plugins to be installed
-# (or upgraded) can be specified.
-# Check the documentation for more information.
-# plugin_dependencies=
-
-
-# If the plugin can run on QGIS Server.
 server=False
+hasProcessingProvider=no
 
+changelog=
+    0.6.1 2024-06-20: Update metadata
