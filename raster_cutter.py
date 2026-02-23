@@ -237,7 +237,7 @@ class RasterCutter:
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
-        result = self.dlg.exec_()
+        result = self.dlg.exec()
         # See if OK was pressed
         if result:
             directory_url = self.dlg.file_dest_field.filePath()  # read the file location from form label
@@ -245,8 +245,8 @@ class RasterCutter:
             # if file already exists, ask user if he is sure.
             if os.path.exists(directory_url):
                 reply = QMessageBox.question(self.dlg, 'Message', "This file already exists. Overwrite?",
-                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-                if reply == QMessageBox.No:
+                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.No:
                     return  # TODO is there a way to open the dialog again if "No" is selected
 
             # get selected layer and check if layer is valid
@@ -298,7 +298,7 @@ class RasterCutter:
                                                              target_resolution=get_target_resolution(self),
                                                              resampling_method=get_resampling_method(self))
             QgsApplication.taskManager().addTask(globals()['process_task'])
-            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.Info)
+            QgsMessageLog.logMessage('Starting process...', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
 
 
 # initializes some connections, only needed once
@@ -308,7 +308,7 @@ def widget_init(self):
     self.dlg.resolution_checkbox.toggled.connect(lambda: on_resolution_checkbox_toggled(self))
     self.dlg.file_dest_field.fileChanged.connect(lambda: on_tif_selected(self))
     self.dlg.button_box.helpRequested.connect(lambda: help_mode())
-    self.dlg.layer_combobox.setFilters(QgsMapLayerProxyModel.RasterLayer)
+    self.dlg.layer_combobox.setFilters(QgsMapLayerProxyModel.Filter.RasterLayer)
 
     # also check states when dialog is opened
     on_resolution_checkbox_toggled(self)
@@ -381,21 +381,21 @@ def process(task, src, iface, directory_url, src_srs, dest_srs, format_string, e
             generate_lexocad: bool, layer_name,
             add_to_map: bool, target_resolution: {"x": float, "y": float}, resampling_method):
     # Crop raster, so that only the needed parts are reprojected, saving processing time
-    QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.Info)
+    QgsMessageLog.logMessage('Cropping raster (possibly downloading)...', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
     cropped = crop('/vsimem/cropped.tif', src, extent_win_string, src_srs, resampling_method)
     if task.isCanceled():  # check if task was cancelled between each step
         stopped(task)
         return None
 
     # reproject and set resolution
-    QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.Info)
+    QgsMessageLog.logMessage('Warping raster...', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
     warped = warp('/vsimem/warped.tif', cropped, dest_srs, target_resolution, resampling_method)
     if task.isCanceled():
         stopped(task)
         return None
 
     # translate to PNG/JPG and generate worldfile
-    QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.Info)
+    QgsMessageLog.logMessage('Translating raster...', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
     translated = translate(directory_url, warped, format_string, options_string)
     if task.isCanceled():
         stopped(task)
@@ -425,7 +425,7 @@ def process(task, src, iface, directory_url, src_srs, dest_srs, format_string, e
 
 # generate lexocad file and delete worldfile and .aux.xml if needed
 def manage_files(generate_lexocad: bool, add_to_map: bool, dir_url):
-    QgsMessageLog.logMessage("Managing sidecar files", MESSAGE_CATEGORY, Qgis.Info)
+    QgsMessageLog.logMessage("Managing sidecar files", MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
     if generate_lexocad:
         generate_lexocad_files(dir_url)
     if not add_to_map:
@@ -505,7 +505,7 @@ def get_file_path(file_name):
 
 def crop(out, src, extent_win_string, extent_srs, resampling_method):
     return gdal.Translate(out, src,
-                          options=f"-projwin {extent_win_string}, -projwin_srs {extent_srs}, -outsize 2000 0, -r {resampling_method}")
+                          options=f"-projwin {extent_win_string} -projwin_srs {extent_srs} -outsize 2000 0 -r {resampling_method}")
 
 
 def warp(out, src, dst_srs, target_resolution, resampling_method):
@@ -525,13 +525,13 @@ def translate(directory_url, src, format_string, options_string):
 # This is called if the task is finished
 def completed(exception, result=None):
     if exception is None:
-        if result['file_name'] is not "":
-            QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.Info)
+        if result['file_name'] != "":
+            QgsMessageLog.logMessage('Adding file to map...', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
             add_file_to_map(result['iface'], result['path'], result['file_name'])
-        QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.Info)
+        QgsMessageLog.logMessage('Done!', MESSAGE_CATEGORY, Qgis.MessageLevel.Info)
         globals()['self'].iface.messageBar().pushMessage("Success",
                                                          f"Layer \"{result['layer_name']}\" exported to {result['path']}",
-                                                         level=Qgis.Info)  # TODO layer name
+                                                         level=Qgis.MessageLevel.Info)  # TODO layer name
     else:
         error_message("Exception: {}".format(exception))
 
@@ -606,7 +606,7 @@ def get_target_resolution(self):
 
 # checks which should be run when clicking on "OK", before calculations are started.
 def pre_process_checks(layer, data_provider):
-    if layer.type() is QgsMapLayer.VectorLayer:
+    if layer.type() is QgsMapLayer.LayerType.VectorLayer:
         return "Provided Layer is a vector layer. Please select a raster layer."
     if not data_provider.isValid():
         return "Provided Layer is not valid."
@@ -618,8 +618,8 @@ def pre_process_checks(layer, data_provider):
 # throw an error message for the user
 def error_message(message):
     self = globals()['self']
-    QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.Critical)
-    self.iface.messageBar().pushMessage("Error", message, level=Qgis.Critical)
+    QgsMessageLog.logMessage(message, MESSAGE_CATEGORY, Qgis.MessageLevel.Critical)
+    self.iface.messageBar().pushMessage("Error", message, level=Qgis.MessageLevel.Critical)
     # raise Exception(message)
 
 
