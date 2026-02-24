@@ -3,10 +3,13 @@
 [general]
 name=Raster Cutter
 qgisMinimumVersion=3.0
-description=Export a raster layer as an image. Select extent, reproject, create Worldfile or Lexocad sidecar files.
-version=0.6.1
+qgisMaximumVersion=4.99
+version=0.7.0
+
 author=Fabio Zahner
 email=geometalab@ost.ch
+
+description=Export a raster layer as an image. Select extent, reproject, create Worldfile or Lexocad sidecar files.
 
 about=This plugin allows the user to select a raster layer from his project, set an extent and export the raster data within this extent to a .jpg or .png image file. Additionally, the plugin can create a Worldfile and/or Lexocad sidecar file if desired. The plugin also supports re-projection into other Coordinate Reference Systems.
 
@@ -21,9 +24,11 @@ tags=python, raster, crs, gdal
 category=Raster
 icon=icon.png
 experimental=False
+supportsQt6=True
 deprecated=False
 server=False
 hasProcessingProvider=no
 
 changelog=
+    0.7.0 2026-02-18: Change QT usage to support QT6, ask for confirmation before overwriting existing files
     0.6.1 2024-06-20: Update metadata
